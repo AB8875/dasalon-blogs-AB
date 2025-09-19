@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "@/style/globals.css";
+import Navbar from "@/components/layout/Navbar";
+import ReactQueryProvider from "@/lib/ReactQueryProvider"; // ✅ import your provider
+import Footer from "@/components/layout/Footer";
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -9,12 +11,19 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {/* ✅ Wrap everything inside ReactQueryProvider */}
+        <ReactQueryProvider>
+          <Navbar />
+          {children}
+          <Footer />
+        </ReactQueryProvider>
+      </body>
     </html>
   );
 }
