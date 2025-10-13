@@ -1,3 +1,4 @@
+// path: src/app/admin/posts/CreateEdit.tsx
 "use client";
 
 import * as React from "react";
@@ -5,49 +6,48 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { AdminButton } from "@/components/admin/AdminButton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+import { AdminButton } from "@/components/admin/AdminButton"; // adjust if default export differs
 
-export type PostFormValues = {
+type PostFormValues = {
   title: string;
   slug: string;
-  categoryId: string;
-  tags: string[];
-  thumbnailUrl?: string;
   content: string;
+  thumbnailUrl?: string;
+  categories: string[];
+  tags: string[];
   status: "draft" | "published";
 };
 
-const demoCategories = [
-  { id: "c1", name: "News" },
-  { id: "c2", name: "Guides" },
-  { id: "c3", name: "Releases" },
-];
-
-export function CreateEditPostForm({
-  initial,
+export default function CreateEdit({
   onSubmit,
+  initial,
 }: {
+  onSubmit: (v: PostFormValues) => Promise<void> | void;
   initial?: Partial<PostFormValues>;
-  onSubmit: (values: PostFormValues) => void;
 }) {
   const [values, setValues] = React.useState<PostFormValues>({
-    title: "",
-    slug: "",
-    categoryId: demoCategories[0].id,
-    tags: [],
-    thumbnailUrl: "",
-    content: "",
-    status: "draft",
-    ...initial,
+    title: initial?.title ?? "",
+    slug: initial?.slug ?? "",
+    content: initial?.content ?? "",
+    thumbnailUrl: initial?.thumbnailUrl ?? "",
+    categories: initial?.categories ?? [],
+    tags: initial?.tags ?? [],
+    status: (initial?.status as "draft" | "published") ?? "draft",
   });
+
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [autoSlug, setAutoSlug] = React.useState(true);
+
+  React.useEffect(() => {
+    if (autoSlug) {
+      const s = values.title
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "");
+      setValues((v) => ({ ...v, slug: s }));
+    }
+  }, [values.title, autoSlug]);
 
   function set<K extends keyof PostFormValues>(key: K, v: PostFormValues[K]) {
     setValues((s) => ({ ...s, [key]: v }));
@@ -56,9 +56,21 @@ export function CreateEditPostForm({
   return (
     <form
       className="space-y-5"
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        onSubmit(values);
+        if (!values.title.trim()) {
+          alert("Title is required");
+          return;
+        }
+        setIsSubmitting(true);
+        try {
+          await onSubmit(values);
+        } catch (err) {
+          console.error(err);
+          alert("Failed to save");
+        } finally {
+          setIsSubmitting(false);
+        }
       }}
     >
       <div className="grid gap-4 md:grid-cols-2">
@@ -70,35 +82,29 @@ export function CreateEditPostForm({
             onChange={(e) => set("title", e.target.value)}
           />
         </div>
+
         <div className="space-y-2">
-          <Label htmlFor="slug">Slug</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="slug">Slug</Label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={autoSlug}
+                onChange={(e) => setAutoSlug(e.target.checked)}
+              />
+              Auto
+            </label>
+          </div>
           <Input
             id="slug"
             value={values.slug}
-            onChange={(e) => set("slug", e.target.value)}
+            onChange={(e) => {
+              setAutoSlug(false);
+              set("slug", e.target.value);
+            }}
           />
         </div>
-      </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label>Category</Label>
-          <Select
-            value={values.categoryId}
-            onValueChange={(v) => set("categoryId", v)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select category" />
-            </SelectTrigger>
-            <SelectContent>
-              {demoCategories.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
         <div className="space-y-2">
           <Label htmlFor="thumb">Thumbnail URL</Label>
           <Input
@@ -106,60 +112,60 @@ export function CreateEditPostForm({
             value={values.thumbnailUrl ?? ""}
             onChange={(e) => set("thumbnailUrl", e.target.value)}
           />
+          {values.thumbnailUrl ? (
+            <img
+              src={values.thumbnailUrl}
+              alt="thumb"
+              className="mt-2 h-24 w-40 object-cover rounded"
+            />
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label>Categories (comma separated)</Label>
+          <Input
+            value={values.categories.join(", ")}
+            onChange={(e) =>
+              set(
+                "categories",
+                e.target.value
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+              )
+            }
+          />
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label>Tags</Label>
-        <div className="flex flex-wrap gap-2">
-          {["nextjs", "mongodb", "release", "guide", "admin"].map((t) => {
-            const active = values.tags.includes(t);
-            return (
-              <Badge
-                key={t}
-                variant={active ? "default" : "secondary"}
-                className="cursor-pointer"
-                onClick={() =>
-                  set(
-                    "tags",
-                    active
-                      ? values.tags.filter((x) => x !== t)
-                      : Array.from(new Set([...values.tags, t]))
-                  )
-                }
-                aria-label={`Toggle tag ${t}`}
-                role="button"
-                tabIndex={0}
-              >
-                {t}
-              </Badge>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="content">Content</Label>
+        <Label>Content</Label>
         <Textarea
-          id="content"
           value={values.content}
           onChange={(e) => set("content", e.target.value)}
-          rows={8}
         />
       </div>
 
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Switch
-            id="status"
-            checked={values.status === "published"}
-            onCheckedChange={(v) => set("status", v ? "published" : "draft")}
-          />
-          <Label htmlFor="status">Published</Label>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 text-sm">
+            <Switch
+              checked={values.status === "published"}
+              onCheckedChange={(v) => set("status", v ? "published" : "draft")}
+            />
+            <span>{values.status === "published" ? "Published" : "Draft"}</span>
+          </label>
         </div>
-        <AdminButton aria-label="Save post" type="submit">
-          Save Post
-        </AdminButton>
+
+        <div>
+          <button
+            type="submit"
+            className="rounded bg-primary px-4 py-2 text-white"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Saving..." : "Save"}
+          </button>
+        </div>
       </div>
     </form>
   );

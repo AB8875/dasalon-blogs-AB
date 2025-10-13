@@ -26,7 +26,7 @@ export default function AdminDashboardPage() {
             key={s.title}
             title={s.title}
             value={s.value}
-            helper={s.helper}
+            subtitle={s.helper}
           />
         ))}
       </section>

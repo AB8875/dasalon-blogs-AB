@@ -1,100 +1,88 @@
-import { NextResponse } from "next/server";
-import { getDb } from "@/lib/mongodb";
+// path: src/app/api/[collection]/[id]/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
+import { getDb } from "@/lib/api"; // ✅ Correct import
 
-const ALLOWED = new Set(["posts", "categories", "users"]);
-
-function toObjectId(id: string) {
-  try {
-    return new ObjectId(id);
-  } catch {
-    return id; // allow string ids if inserted as strings
-  }
-}
+const COLLECTIONS = ["blogs", "users", "posts"];
 
 export async function GET(
-  _req: Request,
+  req: NextRequest,
   { params }: { params: { collection: string; id: string } }
 ) {
   const { collection, id } = params;
-  if (!ALLOWED.has(collection)) {
-    return NextResponse.json(
-      { error: "Collection not allowed" },
-      { status: 400 }
-    );
-  }
-  try {
-    const db = await getDb();
-    const doc = await db
-      .collection(collection)
-      .findOne({ _id: toObjectId(id) });
-    if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    return NextResponse.json(doc);
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || "Error fetching" },
-      { status: 500 }
-    );
-  }
-}
 
-export async function PUT(
-  req: Request,
-  { params }: { params: { collection: string; id: string } }
-) {
-  const { collection, id } = params;
-  if (!ALLOWED.has(collection)) {
-    return NextResponse.json(
-      { error: "Collection not allowed" },
-      { status: 400 }
-    );
+  if (!COLLECTIONS.includes(collection)) {
+    return NextResponse.json({ error: "Invalid collection" }, { status: 400 });
   }
+
   try {
-    const body = await req.json();
-    if (typeof body === "object" && body)
-      body.updatedAt = new Date().toISOString();
     const db = await getDb();
-    const result = await db
+    const item = await db
       .collection(collection)
-      .findOneAndUpdate(
-        { _id: toObjectId(id) },
-        { $set: body },
-        { returnDocument: "after" }
-      );
-    if (!result.value)
+      .findOne({ _id: new ObjectId(id) });
+
+    if (!item)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
-    return NextResponse.json(result.value);
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || "Error updating" },
-      { status: 500 }
-    );
+    return NextResponse.json(item);
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
 export async function DELETE(
-  _req: Request,
+  req: NextRequest,
   { params }: { params: { collection: string; id: string } }
 ) {
   const { collection, id } = params;
-  if (!ALLOWED.has(collection)) {
-    return NextResponse.json(
-      { error: "Collection not allowed" },
-      { status: 400 }
-    );
+
+  if (!COLLECTIONS.includes(collection)) {
+    return NextResponse.json({ error: "Invalid collection" }, { status: 400 });
   }
+
   try {
     const db = await getDb();
     const result = await db
       .collection(collection)
-      .deleteOne({ _id: toObjectId(id) });
+      .deleteOne({ _id: new ObjectId(id) });
+
     if (result.deletedCount === 0)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
-    return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || "Error deleting" },
-      { status: 500 }
-    );
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { collection: string; id: string } }
+) {
+  const { collection, id } = params;
+  const data = await req.json();
+
+  if (!COLLECTIONS.includes(collection)) {
+    return NextResponse.json({ error: "Invalid collection" }, { status: 400 });
+  }
+
+  try {
+    const db = await getDb();
+
+    const result = await db
+      .collection(collection)
+      .findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: data },
+        { returnDocument: "after" }
+      );
+
+    // ✅ Safely handle the case where result or result.value might be null
+    if (!result || !result.value) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(result.value);
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

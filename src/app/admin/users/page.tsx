@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { DataTable, type Column } from "@/components/admin/DataTable";
+import { DataTable, type Column } from "@/components/admin/PostTable";
 import { AdminButton } from "@/components/admin/AdminButton";
 import { ModalShell } from "@/components/admin/ModalShell";
 import { Input } from "@/components/ui/input";

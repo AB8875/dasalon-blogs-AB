@@ -1,173 +1,112 @@
 "use client";
 
-import * as React from "react";
-import { DataTable, type Column } from "@/components/admin/DataTable";
-import { AdminButton } from "@/components/admin/AdminButton";
-import { ModalShell } from "@/components/admin/ModalShell";
-import { CreateEditPostForm, type PostFormValues } from "./CreateEdit";
+import React, { useState, useEffect } from "react";
+import PostsTable, { Post } from "@/components/admin/PostTable";
+import CreateEditPostForm from "./CreateEdit";
+import { apiFetch } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 
-type PostRow = {
-  title: string;
-  slug: string;
-  status: "draft" | "published";
-  category: string;
-  actions?: React.ReactNode;
-};
+export default function PostsPage() {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [open, setOpen] = useState<boolean>(false);
 
-const demoDataInitial: PostRow[] = [
-  {
-    title: "Welcome to Dasalon",
-    slug: "welcome",
-    status: "published",
-    category: "News",
-  },
-  {
-    title: "Admin Tips",
-    slug: "admin-tips",
-    status: "draft",
-    category: "Guides",
-  },
-  {
-    title: "October Update",
-    slug: "october-update",
-    status: "published",
-    category: "Releases",
-  },
-];
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const res = await apiFetch<Post[]>("/posts");
+        setPosts(res);
+      } catch (err) {
+        console.error("Failed to fetch posts:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPosts();
+  }, []);
 
-export default function AdminPostsPage() {
-  const [rows, setRows] = React.useState<PostRow[]>(demoDataInitial);
-  const [filter, setFilter] = React.useState<"all" | "draft" | "published">(
-    "all"
-  );
-  const [q, setQ] = React.useState("");
+  const handleEdit = (id: string) => {
+    const post = posts.find((p) => p.id === id);
+    if (post) setSelectedPost(post);
+    setOpen(true);
+  };
 
-  const filtered = rows.filter((r) => {
-    const matchesQ = [r.title, r.slug, r.category].some((v) =>
-      v.toLowerCase().includes(q.toLowerCase())
-    );
-    const matchesStatus = filter === "all" ? true : r.status === filter;
-    return matchesQ && matchesStatus;
-  });
+  const handleCreate = () => {
+    setSelectedPost(null);
+    setOpen(true);
+  };
 
-  function addRow(values: PostFormValues) {
-    setRows((s) => [
-      {
-        title: values.title,
-        slug: values.slug,
-        status: values.status,
-        category: "News",
-      },
-      ...s,
-    ]);
-  }
+  type PostFormValues = {
+    title: string;
+    slug?: string;
+    status: "draft" | "published";
+    categories?: string[];
+  };
 
-  function updateRow(slug: string, values: Partial<PostFormValues>) {
-    setRows((s) =>
-      s.map((r) =>
-        r.slug === slug
-          ? { ...r, ...values, status: (values.status ?? r.status) as any }
-          : r
-      )
-    );
-  }
+  const handleSave = async (values: PostFormValues) => {
+    try {
+      if (selectedPost) {
+        // Merge existing data with form values
+        const updatedPost = { ...selectedPost, ...values };
 
-  function removeRow(slug: string) {
-    setRows((s) => s.filter((r) => r.slug !== slug));
-  }
+        await apiFetch(`/posts/${selectedPost.id}`, {
+          method: "PUT",
+          body: JSON.stringify(updatedPost),
+        });
 
-  const columns: Column<PostRow>[] = [
-    { key: "title", header: "Title" },
-    { key: "slug", header: "Slug", className: "hidden sm:table-cell" },
-    { key: "category", header: "Category", className: "hidden md:table-cell" },
-    {
-      key: "status",
-      header: "Status",
-      render: (r) => (
-        <span
-          className={
-            r.status === "published" ? "text-emerald-600" : "text-amber-600"
-          }
-        >
-          {r.status}
-        </span>
-      ),
-    },
-  ];
+        setPosts((prev) =>
+          prev.map((p) => (p.id === selectedPost.id ? updatedPost : p))
+        );
+      } else {
+        const newPost = await apiFetch<Post>("/posts", {
+          method: "POST",
+          body: JSON.stringify(values),
+        });
+        setPosts((prev) => [newPost, ...prev]);
+      }
+      setOpen(false);
+    } catch (err) {
+      console.error("Save failed:", err);
+    }
+  };
 
-  const tableData = filtered.map((r) => ({
-    ...r,
-    actions: (
-      <div className="flex items-center justify-end gap-2">
-        <ModalShell
-          title="Edit Post"
-          description="Update the post fields, then save."
-          trigger={
-            <AdminButton variant="secondary" aria-label={`Edit ${r.slug}`}>
-              Edit
-            </AdminButton>
-          }
-        >
-          <CreateEditPostForm
-            initial={{
-              title: r.title,
-              slug: r.slug,
-              content: "",
-              status: r.status,
-            }}
-            onSubmit={(vals) => updateRow(r.slug, vals)}
-          />
-        </ModalShell>
-        <AdminButton
-          aria-label={`Delete ${r.slug}`}
-          variant="destructive"
-          onClick={() => removeRow(r.slug)}
-        >
-          Delete
-        </AdminButton>
-      </div>
-    ),
-  }));
+  const handleDelete = (id: string) => {
+    setPosts((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  if (loading) return <p className="p-4">Loading posts...</p>;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-pretty">Posts</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage blog posts. This list is local demo data only.
-        </p>
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-semibold">Posts</h1>
+        <Button onClick={handleCreate}>Create Post</Button>
       </div>
 
-      <DataTable<PostRow>
-        data={tableData}
-        columns={columns}
-        actionsHeader="Actions"
-        onSearch={setQ}
-        filter={{
-          label: "Status",
-          value: filter,
-          onChange: (v) => setFilter(v as any),
-          options: [
-            { label: "All", value: "all" },
-            { label: "Draft", value: "draft" },
-            { label: "Published", value: "published" },
-          ],
-        }}
-        onCreate={() => {}}
-        createLabel=""
+      <PostsTable<Post>
+        data={posts}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        columns={[
+          { header: "Title", accessor: "title" },
+          { header: "Slug", accessor: "slug" },
+          { header: "Author", accessor: "author" },
+          { header: "Status", accessor: "status" },
+          {
+            header: "Created At",
+            accessor: "createdAt",
+            cell: (val: string) => new Date(val).toLocaleDateString(),
+          },
+        ]}
       />
 
-      <div>
-        <ModalShell
-          title="Create Post"
-          description="Fill the fields below to add a new post."
-          trigger={
-            <AdminButton aria-label="Create Post">Create Post</AdminButton>
-          }
-        >
-          <CreateEditPostForm onSubmit={addRow} />
-        </ModalShell>
-      </div>
+      {open && (
+        <CreateEditPostForm
+          initial={selectedPost ?? undefined} // use 'initial' instead of 'initialData'
+          onSubmit={handleSave} // this should accept PostFormValues
+        />
+      )}
     </div>
   );
 }
