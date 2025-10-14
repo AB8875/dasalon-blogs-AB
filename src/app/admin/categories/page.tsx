@@ -1,19 +1,19 @@
 "use client";
 
 import * as React from "react";
-import DataTable from "@/components/admin/PostTable";
-import Column from "@/components/admin/PostTable";
+import DataTable from "@/components/admin/PostsTable";
+import type { Column } from "@/components/admin/PostsTable";
 import { AdminButton } from "@/components/admin/AdminButton";
 import { ModalShell } from "@/components/admin/ModalShell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type CategoryRow = { name: string; slug: string; actions?: React.ReactNode };
+type CategoryRow = { id: string; name: string; slug: string; actions?: React.ReactNode };
 
 const demoDataInitial: CategoryRow[] = [
-  { name: "News", slug: "news" },
-  { name: "Guides", slug: "guides" },
-  { name: "Releases", slug: "releases" },
+  { id: "1", name: "News", slug: "news" },
+  { id: "2", name: "Guides", slug: "guides" },
+  { id: "3", name: "Releases", slug: "releases" },
 ];
 
 export default function AdminCategoriesPage() {
@@ -24,11 +24,11 @@ export default function AdminCategoriesPage() {
   );
 
   function addRow(v: { name: string; slug: string }) {
-    setRows((s) => [{ name: v.name, slug: v.slug }, ...s]);
+    setRows((s) => [{ id: `${Date.now()}`, name: v.name, slug: v.slug }, ...s]);
   }
 
   function updateRow(slug: string, v: { name: string; slug: string }) {
-    setRows((s) => s.map((r) => (r.slug === slug ? { ...v } : r)));
+    setRows((s) => s.map((r) => (r.slug === slug ? { ...r, ...v } : r)));
   }
 
   function removeRow(slug: string) {
@@ -36,8 +36,8 @@ export default function AdminCategoriesPage() {
   }
 
   const columns: Column<CategoryRow>[] = [
-    { key: "name", header: "Name" },
-    { key: "slug", header: "Slug" },
+    { accessor: "name", header: "Name" },
+    { accessor: "slug", header: "Slug" },
   ];
 
   const tableData = filtered.map((r) => ({
@@ -77,14 +77,17 @@ export default function AdminCategoriesPage() {
         </p>
       </div>
 
-      <DataTable<CategoryRow>
-        data={tableData}
-        columns={columns}
-        actionsHeader="Actions"
-        onSearch={setQ}
-        onCreate={() => {}}
-        createLabel=""
-      />
+      <div className="space-y-4">
+        <Input
+          placeholder="Search categories..."
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <DataTable<CategoryRow>
+          data={tableData}
+          columns={columns}
+        />
+      </div>
 
       <ModalShell
         title="Add Category"

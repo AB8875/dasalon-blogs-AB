@@ -3,6 +3,11 @@
 
 import * as React from "react";
 import Link from "next/link";
+type AdminSidebarProps = {
+  collapsed?: boolean;
+  onCollapseToggle?: () => void;
+};
+
 import {
   LayoutDashboard,
   FileText,
@@ -17,6 +22,7 @@ type NavItem = {
   href?: string;
   badge?: string;
   icon: React.ReactNode;
+  action?: () => void;
 };
 
 const NAV_ITEMS: NavItem[] = [

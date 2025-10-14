@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { DataTable, type Column } from "@/components/admin/PostTable";
 import { AdminButton } from "@/components/admin/AdminButton";
 import { ModalShell } from "@/components/admin/ModalShell";
 import { Input } from "@/components/ui/input";
@@ -13,18 +12,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import PostsTable, { Column } from "@/components/admin/PostsTable";
+import { id } from "zod/v4/locales";
 
 type UserRow = {
+  id: string;
   name: string;
   email: string;
   role: "admin" | "editor" | "viewer";
-  actions?: React.ReactNode;
 };
 
 const demoDataInitial: UserRow[] = [
-  { name: "Jane Doe", email: "jane@example.com", role: "admin" },
-  { name: "John Smith", email: "john@example.com", role: "editor" },
-  { name: "Ava Lee", email: "ava@example.com", role: "viewer" },
+  { id: "1", name: "Jane Doe", email: "jane@example.com", role: "admin" },
+  { id: "2", name: "John Smith", email: "john@example.com", role: "editor" },
+  { id: "3", name: "Ava Lee", email: "ava@example.com", role: "viewer" },
 ];
 
 export default function AdminUsersPage() {
@@ -37,14 +38,11 @@ export default function AdminUsersPage() {
     )
   );
 
-  function addUser(v: { name: string; email: string; role: UserRow["role"] }) {
+  function addUser(v: UserRow) {
     setRows((s) => [{ ...v }, ...s]);
   }
 
-  function updateUser(
-    email: string,
-    v: { name: string; email: string; role: UserRow["role"] }
-  ) {
+  function updateUser(email: string, v: UserRow) {
     setRows((s) => s.map((r) => (r.email === email ? { ...v } : r)));
   }
 
@@ -53,9 +51,9 @@ export default function AdminUsersPage() {
   }
 
   const columns: Column<UserRow>[] = [
-    { key: "name", header: "Name" },
-    { key: "email", header: "Email" },
-    { key: "role", header: "Role" },
+    { accessor: "name", header: "Name" },
+    { accessor: "email", header: "Email" },
+    { accessor: "role", header: "Role" },
   ];
 
   const tableData = filtered.map((r) => ({
@@ -95,14 +93,7 @@ export default function AdminUsersPage() {
         </p>
       </div>
 
-      <DataTable<UserRow>
-        data={tableData}
-        columns={columns}
-        actionsHeader="Actions"
-        onSearch={setQ}
-        onCreate={() => {}}
-        createLabel=""
-      />
+      <PostsTable<UserRow> data={tableData} columns={columns} />
 
       <ModalShell
         title="Add User"
@@ -119,7 +110,7 @@ function UserForm({
   onSubmit,
 }: {
   initial?: Partial<UserRow>;
-  onSubmit: (v: { name: string; email: string; role: UserRow["role"] }) => void;
+  onSubmit: (v: UserRow) => void;
 }) {
   const [name, setName] = React.useState(initial?.name ?? "");
   const [email, setEmail] = React.useState(initial?.email ?? "");
@@ -132,7 +123,7 @@ function UserForm({
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit({ name, email, role });
+        onSubmit({ id: crypto.randomUUID(), name, email, role });
       }}
     >
       <div className="space-y-2">

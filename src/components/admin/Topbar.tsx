@@ -4,7 +4,7 @@
 import * as React from "react";
 import { Menu } from "lucide-react";
 
-export function AdminTopbar({ onToggle }: { onToggle?: () => void }) {
+export function Topbar({ onToggle }: { onToggle?: () => void }) {
   return (
     <header className="sticky top-0 z-30 bg-white border-b">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">

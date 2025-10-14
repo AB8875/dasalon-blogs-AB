@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import PostsTable, { Post } from "@/components/admin/PostTable";
+import PostsTable, { Post } from "@/components/admin/PostsTable";
 import CreateEditPostForm from "./CreateEdit";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
