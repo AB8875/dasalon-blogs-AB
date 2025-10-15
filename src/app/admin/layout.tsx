@@ -11,7 +11,7 @@ export default function AdminLayout({
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <aside className="w-64 border-r bg-white">
+      <aside className="md:w-64 w-25 border-r bg-white">
         <Sidebar />
       </aside>
 

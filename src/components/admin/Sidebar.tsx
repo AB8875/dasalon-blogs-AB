@@ -43,7 +43,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Logout", href: "/logout", icon: <LogOut size={18} /> },
 ];
 
-export default function Sidebar({
+export default function ZxSidebar({
   open = false,
   onClose,
 }: {
