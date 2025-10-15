@@ -1,73 +1,55 @@
-// path: src/app/api/[collection]/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
-import { getDb } from "@/lib/api"; // ✅ Correct import
+import { ObjectId, Db } from "mongodb";
+import { getDb } from "@/lib/mongodb";
+import { AwardIcon } from "lucide-react";
 
-const COLLECTIONS = ["blogs", "users", "posts"];
+const ALLOWED = new Set(["posts", "categories", "users"]);
 
+// GET /api/[collection]/[id]
 export async function GET(
   req: NextRequest,
-  { params }: { params: { collection: string; id: string } }
+  context: { params: Promise<{ collection: string; id: string }> }
 ) {
-  const { collection, id } = params;
-
-  if (!COLLECTIONS.includes(collection)) {
-    return NextResponse.json({ error: "Invalid collection" }, { status: 400 });
+  const { collection, id } = await context.params;
+  if (!ALLOWED.has(collection)) {
+    return NextResponse.json(
+      { error: "Collection not allowed" },
+      { status: 400 }
+    );
   }
 
   try {
-    const db = await getDb();
+    const db = (await getDb()) as Db;
     const item = await db
       .collection(collection)
       .findOne({ _id: new ObjectId(id) });
-
     if (!item)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(item);
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      { error: err?.message || "Error fetching item" },
+      { status: 500 }
+    );
   }
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { collection: string; id: string } }
-) {
-  const { collection, id } = params;
-
-  if (!COLLECTIONS.includes(collection)) {
-    return NextResponse.json({ error: "Invalid collection" }, { status: 400 });
-  }
-
-  try {
-    const db = await getDb();
-    const result = await db
-      .collection(collection)
-      .deleteOne({ _id: new ObjectId(id) });
-
-    if (result.deletedCount === 0)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-    return NextResponse.json({ success: true });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
-}
-
+// PATCH /api/[collection]/[id]
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { collection: string; id: string } }
+  context: { params: Promise<{ collection: string; id: string }> }
 ) {
-  const { collection, id } = params;
-  const data = await req.json();
-
-  if (!COLLECTIONS.includes(collection)) {
-    return NextResponse.json({ error: "Invalid collection" }, { status: 400 });
+  const { collection, id } = await context.params;
+  if (!ALLOWED.has(collection)) {
+    return NextResponse.json(
+      { error: "Collection not allowed" },
+      { status: 400 }
+    );
   }
 
   try {
-    const db = await getDb();
-
+    const data = await req.json();
+    const db = (await getDb()) as Db;
     const result = await db
       .collection(collection)
       .findOneAndUpdate(
@@ -76,13 +58,42 @@ export async function PATCH(
         { returnDocument: "after" }
       );
 
-    // ✅ Safely handle the case where result or result.value might be null
-    if (!result || !result.value) {
+    if (!result?.value)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-
-    return NextResponse.json(result.value);
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      { error: err?.message || "Error updating" },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/[collection]/[id]
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ collection: string; id: string }> }
+) {
+  const { collection, id } = await context.params;
+  if (!ALLOWED.has(collection)) {
+    return NextResponse.json(
+      { error: "Collection not allowed" },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const db = (await getDb()) as Db;
+    const result = await db
+      .collection(collection)
+      .deleteOne({ _id: new ObjectId(id) });
+
+    if (result.deletedCount === 0)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err?.message || "Error deleting" },
+      { status: 500 }
+    );
   }
 }
