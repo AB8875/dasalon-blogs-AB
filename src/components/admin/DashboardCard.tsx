@@ -1,106 +1,64 @@
 // path: src/components/admin/DashboardCard.tsx
-import type * as React from "react";
+import React from "react";
+import { LucideIcon } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 
-export type DashboardCardProps = {
+export interface DashboardCardProps
+  extends React.HTMLAttributes<HTMLDivElement> {
   title: string;
   value: string | number;
-  icon?: React.ReactNode;
-  delta?: string;
+  // 👇 simplified type: only allow icon as component (not ReactNode)
+  icon?: LucideIcon;
   subtitle?: string;
-  ariaLabel?: string;
-} & React.HTMLAttributes<HTMLDivElement>;
+  trend?: {
+    value: string;
+    isPositive: boolean;
+  };
+  iconBgColor?: string;
+  iconColor?: string;
+}
 
-const deltaClasses = (delta?: string) => {
-  if (!delta) return "bg-muted text-muted-foreground";
-  // Use design tokens: destructive for negative, accent for positive/neutral
-  return delta.trim().startsWith("-")
-    ? "bg-destructive text-destructive-foreground"
-    : "bg-accent text-accent-foreground";
-};
-
-// Export requirement: named React.FC
 export const DashboardCard: React.FC<DashboardCardProps> = ({
   title,
   value,
-  icon,
-  delta,
+  icon: Icon, // rename for JSX usage
   subtitle,
-  ariaLabel,
+  trend,
+  iconBgColor = "bg-blue-100",
+  iconColor = "text-blue-600",
   className,
   ...rest
 }) => {
   return (
-    <div
-      role="group"
-      tabIndex={0}
-      aria-label={ariaLabel || `${title} card`}
-      className={[
-        // Card shell
-        "relative rounded-2xl border bg-card text-card-foreground shadow-sm",
-        // Spacing
-        "p-4 sm:p-5",
-        // Focus styles
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-        // Merge external className
-        className || "",
-      ].join(" ")}
+    <Card
+      className={`rounded-2xl shadow-sm border-gray-200 ${className || ""}`}
       {...rest}
     >
-      {/* Delta badge - top right */}
-      {delta ? (
-        <div
-          className={[
-            "absolute right-3 top-3 select-none rounded-full px-2 py-0.5 text-xs font-medium",
-            deltaClasses(delta),
-          ].join(" ")}
-        >
-          {delta}
-        </div>
-      ) : null}
-
-      {/* Content */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-        {/* Icon */}
-        {icon ? (
-          <div className="flex items-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-              {icon}
-            </div>
-          </div>
-        ) : null}
-
-        {/* Text */}
-        <div className="flex w-full flex-col">
-          <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-medium text-muted-foreground text-pretty">
-              {title}
+      <CardContent className="p-6 flex items-center justify-between">
+        <div>
+          <p className="text-sm text-gray-500 mb-1">{title}</p>
+          <h3 className="text-3xl font-bold text-gray-900">{value}</h3>
+          {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
+          {trend && (
+            <p
+              className={`text-sm mt-2 ${
+                trend.isPositive ? "text-green-600" : "text-red-600"
+              }`}
+            >
+              {trend.isPositive ? "+" : ""}
+              {trend.value}
             </p>
-          </div>
-
-          <div className="mt-1">
-            <div className="text-2xl font-semibold leading-none md:text-3xl">
-              {value}
-            </div>
-            {subtitle ? (
-              <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
-            ) : null}
-          </div>
+          )}
         </div>
-      </div>
-    </div>
+
+        {Icon && (
+          <div
+            className={`${iconBgColor} ${iconColor} p-3 rounded-xl flex items-center justify-center`}
+          >
+            <Icon className="w-6 h-6" />
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
-
-/*
-Example usage:
-
-import { UserPlus } from 'lucide-react'
-
-<DashboardCard
-  title="New Users"
-  value={1280}
-  delta="+4.2%"
-  subtitle="vs last week"
-  icon={<UserPlus className="h-5 w-5" />}
-/>
-*/

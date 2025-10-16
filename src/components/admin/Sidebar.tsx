@@ -1,99 +1,92 @@
-// path: src/components/admin/Sidebar.tsx
 "use client";
 
-import * as React from "react";
 import Link from "next/link";
-type AdminSidebarProps = {
-  collapsed?: boolean;
-  onCollapseToggle?: () => void;
-};
+import { usePathname } from "next/navigation";
+import { sidebarLinks } from "@/config/sidebarLinks";
+import { cn } from "@/lib/utils";
+import { Menu, X } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
-import {
-  LayoutDashboard,
-  FileText,
-  Tags,
-  Users,
-  Settings,
-  LogOut,
-} from "lucide-react";
+export function Sidebar() {
+  const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(false); // Mobile sidebar toggle
 
-type NavItem = {
-  label: string;
-  href?: string;
-  badge?: string;
-  icon: React.ReactNode;
-  action?: () => void;
-};
-
-const NAV_ITEMS: NavItem[] = [
-  {
-    label: "Dashboard",
-    href: "/admin/dashboard",
-    icon: <LayoutDashboard size={18} />,
-  },
-  {
-    label: "Posts",
-    href: "/admin/posts",
-    icon: <FileText size={18} />,
-    badge: "3",
-  },
-  { label: "Categories", href: "/admin/categories", icon: <Tags size={18} /> },
-  { label: "Users", href: "/admin/users", icon: <Users size={18} /> },
-  { label: "Settings", href: "/admin/settings", icon: <Settings size={18} /> },
-  { label: "Logout", href: "/logout", icon: <LogOut size={18} /> },
-];
-
-export default function ZxSidebar({
-  open = false,
-  onClose,
-}: {
-  open?: boolean;
-  onClose?: () => void;
-}) {
   return (
     <>
       {/* Mobile overlay */}
+      <div
+        className={cn(
+          "fixed inset-0 z-40 bg-black/40 transition-opacity md:hidden",
+          isOpen ? "opacity-100 visible" : "opacity-0 invisible"
+        )}
+        onClick={() => setIsOpen(false)}
+      />
+
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 transform bg-white border-r p-4 transition-transform md:static md:translate-x-0 ${
-          open ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        }`}
-        aria-label="Admin Sidebar"
+        className={cn(
+          "fixed top-0 left-0 z-50 h-full w-64 bg-white border-r border-gray-200 transform transition-transform md:translate-x-0 md:static",
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        )}
       >
-        <div className="mb-6 flex items-center justify-between">
-          <Link href="/admin">
-            <span className="text-lg font-semibold">Dasalon Admin</span>
-          </Link>
-          <button
-            aria-label="Close sidebar"
-            className="md:hidden rounded p-1 hover:bg-slate-100"
-            onClick={() => onClose?.()}
+        {/* Sidebar header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Dasalon Blogs</h1>
+            <p className="text-sm text-gray-500 mt-1">Admin Panel</p>
+          </div>
+          {/* Close button on mobile */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setIsOpen(false)}
           >
-            ✕
-          </button>
+            <X className="w-5 h-5" />
+          </Button>
         </div>
 
-        <nav aria-label="Main nav" className="flex flex-col gap-1">
-          <ul className="space-y-1">
-            {NAV_ITEMS.map((item) => (
-              <li key={item.label}>
-                <Link
-                  href={item.href ?? "#"}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-slate-100"
-                >
-                  <span className="inline-flex items-center">{item.icon}</span>
-                  <span className="truncate">{item.label}</span>
-                  {item.badge && (
-                    <span className="ml-auto inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold">
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ul>
+        {/* Navigation */}
+        <nav className="px-4 py-6 space-y-2">
+          {sidebarLinks.map((link) => {
+            const Icon = link.icon;
+            const isActive = pathname === link.href;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 rounded-xl transition-all",
+                  isActive
+                    ? "bg-gray-900 text-white"
+                    : "text-gray-600 hover:bg-gray-100"
+                )}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="font-medium">{link.label}</span>
+                {link.badge && (
+                  <span className="ml-auto inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold">
+                    {link.badge}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
         </nav>
       </aside>
-      {/* Spacer for content on md+ */}
+
+      {/* Mobile toggle button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="fixed top-4 left-4 z-50 md:hidden"
+        onClick={() => setIsOpen(true)}
+        aria-label="Open sidebar"
+      >
+        <Menu className="w-5 h-5" />
+      </Button>
+
+      {/* Spacer for desktop */}
       <div className="hidden md:block md:w-64" />
     </>
   );

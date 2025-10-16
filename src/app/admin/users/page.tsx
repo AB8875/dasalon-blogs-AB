@@ -1,10 +1,25 @@
 "use client";
 
-import * as React from "react";
-import { AdminButton } from "@/components/admin/AdminButton";
-import { ModalShell } from "@/components/admin/ModalShell";
+import { useEffect, useState } from "react";
+import { Plus, Search, Edit, Trash2, Mail } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -12,155 +27,298 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import PostsTable, { Column } from "@/components/admin/PostsTable";
-import { id } from "zod/v4/locales";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-type UserRow = {
-  id: string;
-  name: string;
+type User = {
+  _id: string;
+  full_name: string;
   email: string;
-  role: "admin" | "editor" | "viewer";
+  role: "admin" | "editor" | "author";
+  created_at: string;
+  avatar_url?: string; // optional to fix AvatarImage error
 };
 
-const demoDataInitial: UserRow[] = [
-  { id: "1", name: "Jane Doe", email: "jane@example.com", role: "admin" },
-  { id: "2", name: "John Smith", email: "john@example.com", role: "editor" },
-  { id: "3", name: "Ava Lee", email: "ava@example.com", role: "viewer" },
-];
+export default function UsersPage() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
-export default function AdminUsersPage() {
-  const [rows, setRows] = React.useState<UserRow[]>(demoDataInitial);
-  const [q, setQ] = React.useState("");
+  const [formData, setFormData] = useState({
+    full_name: "",
+    email: "",
+    role: "author" as "admin" | "editor" | "author",
+    avatar_url: "",
+  });
 
-  const filtered = rows.filter((r) =>
-    [r.name, r.email, r.role].some((v) =>
-      String(v).toLowerCase().includes(q.toLowerCase())
-    )
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  async function fetchUsers() {
+    try {
+      const res = await fetch("/api/users");
+      const data = await res.json();
+      if (Array.isArray(data)) setUsers(data);
+      else setUsers([]);
+    } catch (err) {
+      console.error("Failed to fetch users:", err);
+      setUsers([]);
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    try {
+      if (editingUser) {
+        await fetch("/api/users", {
+          method: "PUT",
+          body: JSON.stringify({ ...formData, id: editingUser._id }),
+        });
+      } else {
+        await fetch("/api/users", {
+          method: "POST",
+          body: JSON.stringify(formData),
+        });
+      }
+
+      setIsDialogOpen(false);
+      resetForm();
+      fetchUsers();
+    } catch (err) {
+      console.error("Error saving user:", err);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Are you sure you want to delete this user?")) return;
+
+    try {
+      await fetch(`/api/users?id=${id}`, { method: "DELETE" });
+      fetchUsers();
+    } catch (err) {
+      console.error("Error deleting user:", err);
+    }
+  }
+
+  function resetForm() {
+    setFormData({ full_name: "", email: "", role: "author", avatar_url: "" });
+    setEditingUser(null);
+  }
+
+  function handleEdit(user: User) {
+    setEditingUser(user);
+    setFormData({
+      full_name: user.full_name,
+      email: user.email,
+      role: user.role,
+      avatar_url: user.avatar_url || "",
+    });
+    setIsDialogOpen(true);
+  }
+
+  const filteredUsers = users.filter(
+    (user) =>
+      user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.role.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  function addUser(v: UserRow) {
-    setRows((s) => [{ ...v }, ...s]);
+  function getRoleBadgeVariant(role: string) {
+    switch (role) {
+      case "admin":
+        return "default";
+      case "editor":
+        return "secondary";
+      default:
+        return "outline";
+    }
   }
 
-  function updateUser(email: string, v: UserRow) {
-    setRows((s) => s.map((r) => (r.email === email ? { ...v } : r)));
+  function getInitials(name: string) {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   }
-
-  function removeUser(email: string) {
-    setRows((s) => s.filter((r) => r.email !== email));
-  }
-
-  const columns: Column<UserRow>[] = [
-    { accessor: "name", header: "Name" },
-    { accessor: "email", header: "Email" },
-    { accessor: "role", header: "Role" },
-  ];
-
-  const tableData = filtered.map((r) => ({
-    ...r,
-    actions: (
-      <div className="flex items-center justify-end gap-2">
-        <ModalShell
-          title="Edit User"
-          trigger={
-            <AdminButton variant="secondary" aria-label={`Edit ${r.email}`}>
-              Edit
-            </AdminButton>
-          }
-        >
-          <UserForm
-            initial={r}
-            onSubmit={(vals) => updateUser(r.email, vals)}
-          />
-        </ModalShell>
-        <AdminButton
-          variant="destructive"
-          aria-label={`Delete ${r.email}`}
-          onClick={() => removeUser(r.email)}
-        >
-          Delete
-        </AdminButton>
-      </div>
-    ),
-  }));
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-pretty">Users</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage admin users and roles (demo data only).
-        </p>
+      {/* Header + Add Button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Team Members</h1>
+          <p className="text-gray-500 mt-1">Manage your team members</p>
+        </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2" onClick={resetForm}>
+              <Plus className="w-4 h-4" />
+              Add Member
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {editingUser ? "Edit Team Member" : "Add New Team Member"}
+              </DialogTitle>
+              <DialogDescription>
+                {editingUser
+                  ? "Update team member details"
+                  : "Add a new member to your team"}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="full_name">Full Name</Label>
+                <Input
+                  id="full_name"
+                  value={formData.full_name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, full_name: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="role">Role</Label>
+                <Select
+                  value={formData.role}
+                  onValueChange={(value: any) =>
+                    setFormData({ ...formData, role: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="editor">Editor</SelectItem>
+                    <SelectItem value="author">Author</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  {editingUser ? "Update" : "Add"} Member
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      <PostsTable<UserRow> data={tableData} columns={columns} />
+      {/* Search + Table */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Input
+              type="search"
+              placeholder="Search team members..."
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
 
-      <ModalShell
-        title="Add User"
-        trigger={<AdminButton aria-label="Add User">Add User</AdminButton>}
-      >
-        <UserForm onSubmit={addUser} />
-      </ModalShell>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Member</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Joined</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredUsers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-gray-500">
+                  No users found. Add your first team member!
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredUsers.map((user) => (
+                <TableRow key={user._id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        {user.avatar_url ? (
+                          <AvatarImage src={user.avatar_url} />
+                        ) : (
+                          <AvatarFallback>
+                            {getInitials(user.full_name)}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <span className="font-medium">{user.full_name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Mail className="w-4 h-4" />
+                      {user.email}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getRoleBadgeVariant(user.role)}>
+                      {user.role}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {new Date(user.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEdit(user)}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDelete(user._id)}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
-  );
-}
-
-function UserForm({
-  initial,
-  onSubmit,
-}: {
-  initial?: Partial<UserRow>;
-  onSubmit: (v: UserRow) => void;
-}) {
-  const [name, setName] = React.useState(initial?.name ?? "");
-  const [email, setEmail] = React.useState(initial?.email ?? "");
-  const [role, setRole] = React.useState<UserRow["role"]>(
-    initial?.role ?? "viewer"
-  );
-
-  return (
-    <form
-      className="space-y-4"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit({ id: crypto.randomUUID(), name, email, role });
-      }}
-    >
-      <div className="space-y-2">
-        <Label htmlFor="user-name">Name</Label>
-        <Input
-          id="user-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="user-email">Email</Label>
-        <Input
-          id="user-email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Role</Label>
-        <Select value={role} onValueChange={(v) => setRole(v as any)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="admin">Admin</SelectItem>
-            <SelectItem value="editor">Editor</SelectItem>
-            <SelectItem value="viewer">Viewer</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex justify-end">
-        <AdminButton aria-label="Save user" type="submit">
-          Save
-        </AdminButton>
-      </div>
-    </form>
   );
 }

@@ -1,7 +1,9 @@
 "use client";
 
-import Sidebar from "@/components/admin/Sidebar";
-import { Topbar } from "@/components/admin/Topbar";
+import { Toaster } from "sonner"; // ✅ Import Sonner Toaster
+import "@/style/globals.css";
+import { Navbar } from "@/components/admin/Navbar";
+import { Sidebar } from "@/components/admin/Sidebar";
 
 export default function AdminLayout({
   children,
@@ -17,13 +19,16 @@ export default function AdminLayout({
         </aside>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden ">
           {/* Topbar */}
-          <Topbar />
+          <Navbar />
 
           {/* Page Content */}
-          <main className="flex-1 overflow-y-auto p-6">{children}</main>
+          <main className="flex-1 overflow-y-auto p-6 py-20">{children}</main>
         </div>
+
+        {/* ✅ Toaster (works for all admin pages) */}
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );

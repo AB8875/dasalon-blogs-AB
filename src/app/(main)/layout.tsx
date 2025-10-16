@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "@/style/globals.css";
 import RootLayoutClient from "@/components/layout/RootLayoutClient";
+import { Toaster } from "sonner"; // ✅ Import Sonner Toaster
 
 export const metadata: Metadata = {
   title: "Dasalon Blogs",
@@ -16,6 +17,8 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <RootLayoutClient>{children}</RootLayoutClient>
+        {/* ✅ Global Toaster for the entire app */}
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );

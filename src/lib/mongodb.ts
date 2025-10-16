@@ -1,16 +1,28 @@
+// path: src/lib/mongodb.ts
 import { MongoClient, Db } from "mongodb";
 
+const uri = process.env.MONGODB_URI as string;
+const dbName = process.env.MONGODB_DB || "dasalon";
+
+if (!uri) throw new Error("❌ MONGODB_URI environment variable not set.");
+
 let client: MongoClient;
-let db: Db;
+let clientPromise: Promise<MongoClient>;
 
-export async function getDb(uri?: string, dbName = "test"): Promise<Db> {
-  if (db) return db;
+if (process.env.NODE_ENV === "development") {
+  // In dev mode, reuse the client across hot reloads
+  if (!(global as any)._mongoClientPromise) {
+    client = new MongoClient(uri);
+    (global as any)._mongoClientPromise = client.connect();
+  }
+  clientPromise = (global as any)._mongoClientPromise;
+} else {
+  // In production mode, create a new client
+  client = new MongoClient(uri);
+  clientPromise = client.connect();
+}
 
-  const mongoUri = uri || process.env.MONGO_URI;
-  if (!mongoUri) throw new Error("MongoDB URI is required");
-
-  client = new MongoClient(mongoUri);
-  await client.connect();
-  db = client.db(dbName);
-  return db;
+export async function getDb(): Promise<Db> {
+  const client = await clientPromise;
+  return client.db(dbName);
 }

@@ -1,10 +1,15 @@
-// next.config.js
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   images: {
-    domains: ["dasalon-blog.s3.ap-south-1.amazonaws.com"], // whitelist your S3 bucket
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "dasalon-blog.s3.ap-south-1.amazonaws.com",
+        port: "",
+        pathname: "/**", // allow all paths under this domain
+      },
+    ],
   },
 };
 
-export default nextConfig;
+module.exports = nextConfig;
