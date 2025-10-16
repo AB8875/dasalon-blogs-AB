@@ -14,10 +14,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { SiteSettings } from "@/types/settings";
 import { apiFetch } from "@/lib/api";
+import LogOut from "@/components/admin/LogOut";
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -44,7 +44,7 @@ export default function SettingsPage() {
 
   async function fetchSettings() {
     try {
-      const data = await apiFetch<SiteSettings>("/settings"); // GET settings from MongoDB
+      const data = await apiFetch<SiteSettings>("/settings");
       if (data) {
         setSettings(data);
         setFormData(data);
@@ -65,7 +65,6 @@ export default function SettingsPage() {
 
     try {
       if (settings) {
-        // update existing settings
         await apiFetch(`/settings/${settings._id}`, {
           method: "PUT",
           body: JSON.stringify(updateData),
@@ -75,7 +74,6 @@ export default function SettingsPage() {
           description: "Settings updated successfully.",
         });
       } else {
-        // create settings
         await apiFetch("/settings", {
           method: "POST",
           body: JSON.stringify(updateData),
@@ -99,7 +97,8 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6">
+      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
         <p className="text-gray-500 mt-1">
@@ -107,6 +106,7 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      {/* Settings Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card className="rounded-2xl shadow-sm border-gray-200">
           <CardHeader>
@@ -136,7 +136,7 @@ export default function SettingsPage() {
                 required
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="logo_url">Logo URL</Label>
                 <Input
@@ -167,7 +167,7 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle>Social Links</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="facebook_url">Facebook</Label>
               <Input
@@ -215,7 +215,7 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle>Display Preferences</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="theme">Theme</Label>
               <Select
@@ -225,7 +225,7 @@ export default function SettingsPage() {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select theme" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="light">Light</SelectItem>
@@ -260,6 +260,14 @@ export default function SettingsPage() {
           </Button>
         </div>
       </form>
+
+      {/* Logout Section at Bottom */}
+      <div className="mt-10 border-t pt-6">
+        <p className="text-sm text-gray-500 mb-2">
+          Want to sign out of your admin account?
+        </p>
+        <LogOut />
+      </div>
     </div>
   );
 }

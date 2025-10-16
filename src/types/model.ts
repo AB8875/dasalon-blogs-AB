@@ -28,5 +28,5 @@ export interface AdminUser {
   name: string;
   email: string;
   role: "admin" | "editor" | "viewer";
-  createdAt?: string;
+  created_at?: string;
 }

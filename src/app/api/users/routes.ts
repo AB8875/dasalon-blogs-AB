@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
 
 export async function GET() {
   try {
@@ -8,78 +7,44 @@ export async function GET() {
     const users = await db
       .collection("users")
       .find({})
-      .sort({ created_at: -1 })
+      .sort({ createdAt: -1 }) // <-- rename here
       .toArray();
 
-    return NextResponse.json(users); // ✅ return array directly
+    // map _id to string and createdAt field
+    const formattedUsers = users.map((user) => ({
+      ...user,
+      _id: user._id.toString(),
+      createdAt: user.created_at, // keep frontend consistent
+    }));
+
+    return NextResponse.json(formattedUsers);
   } catch (err) {
-    console.error("Error fetching users:", err);
-    return NextResponse.json([], { status: 500 });
+    console.error(err);
+    return NextResponse.json(
+      { message: "Failed to fetch users" },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
+    const { full_name, email, role } = await req.json();
     const db = await getDb();
-    const body = await req.json();
 
     const newUser = {
-      ...body,
-      created_at: new Date(),
-      updated_at: new Date(),
+      full_name,
+      email,
+      role,
+      created_at: new Date().toISOString(),
     };
 
-    await db.collection("users").insertOne(newUser);
-    return NextResponse.json({ message: "User added successfully" });
+    const result = await db.collection("users").insertOne(newUser);
+    return NextResponse.json({ ...newUser, _id: result.insertedId.toString() });
   } catch (err) {
-    console.error("Error adding user:", err);
+    console.error(err);
     return NextResponse.json(
-      { message: "Failed to add user" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PUT(req: NextRequest) {
-  try {
-    const db = await getDb();
-    const body = await req.json();
-
-    const { id, ...rest } = body;
-
-    await db
-      .collection("users")
-      .updateOne(
-        { _id: new ObjectId(id) },
-        { $set: { ...rest, updated_at: new Date() } }
-      );
-
-    return NextResponse.json({ message: "User updated successfully" });
-  } catch (err) {
-    console.error("Error updating user:", err);
-    return NextResponse.json(
-      { message: "Failed to update user" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get("id");
-
-    if (!id)
-      return NextResponse.json({ message: "ID is required" }, { status: 400 });
-
-    const db = await getDb();
-    await db.collection("users").deleteOne({ _id: new ObjectId(id) });
-
-    return NextResponse.json({ message: "User deleted successfully" });
-  } catch (err) {
-    console.error("Error deleting user:", err);
-    return NextResponse.json(
-      { message: "Failed to delete user" },
+      { message: "Failed to create user" },
       { status: 500 }
     );
   }
