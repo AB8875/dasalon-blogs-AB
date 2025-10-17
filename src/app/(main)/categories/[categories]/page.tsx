@@ -2,19 +2,16 @@
 import { notFound } from "next/navigation";
 
 interface CategoryPageProps {
-  params: { categories: string };
+  params: Promise<{ categories: string }>;
 }
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
-  const { categories } = params;
+  const { categories } = await params; // ✅ Await params here
 
-  // Example logic – you can replace this with your actual fetch
   try {
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/blogs?category=${categories}`,
-      {
-        cache: "no-store",
-      }
+      { cache: "no-store" }
     );
 
     if (!res.ok) {
