@@ -7,4 +7,5 @@ export interface Category {
   parent_id?: string | null; // ID of parent category if any
   created_at: string; // Creation timestamp
   updated_at?: string | null; // Update timestamp
+  subCategories?: string[];
 }
