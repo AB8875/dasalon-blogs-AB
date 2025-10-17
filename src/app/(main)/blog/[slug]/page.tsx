@@ -1,5 +1,14 @@
 import BlogDetail from "@/components/blog/BlogDetail";
 
-export default function BlogPage({ params }: { params: { slug: string } }) {
-  return <BlogDetail slug={params.slug} />;
+interface BlogPageProps {
+  params: {
+    slug: string;
+  };
+}
+
+export default async function BlogPage({ params }: BlogPageProps) {
+  const { slug } = params;
+
+  // Fetch blog data here or pass to component
+  return <BlogDetail slug={slug} />;
 }
