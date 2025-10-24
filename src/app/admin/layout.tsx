@@ -31,7 +31,7 @@ export default function AdminLayout({
     <html lang="en">
       <body className="flex h-screen bg-gray-50">
         {/* Sidebar */}
-        <aside className="md:w-64 w-25 border-r bg-white">
+        <aside className="md:w-64 w-20 border-r bg-white">
           <Sidebar />
         </aside>
 
@@ -41,7 +41,9 @@ export default function AdminLayout({
           <Navbar />
 
           {/* Page Content */}
-          <main className="flex-1 overflow-y-auto p-6 py-20">{children}</main>
+          <main className="flex-1 overflow-y-auto p-6 py-20 scrollbar-hide">
+            {children}
+          </main>
         </div>
 
         {/* Toaster */}
