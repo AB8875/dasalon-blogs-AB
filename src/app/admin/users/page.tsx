@@ -199,7 +199,8 @@ export default function UsersPage() {
       </div>
 
       {/* Search + Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4  md:p-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6">
+        {/* Search Bar */}
         <div className="flex items-center gap-4 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -213,43 +214,46 @@ export default function UsersPage() {
           </div>
         </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Member</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Joined</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredUsers.length === 0 ? (
+        {/* Table Wrapper (adds horizontal scroll safely on small screens) */}
+        <div className="overflow-x-auto w-full">
+          <Table className="min-w-[600px] w-full text-sm">
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-gray-500">
-                  No users found. Add your first team member!
-                </TableCell>
+                <TableHead>Member</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Joined</TableHead>
               </TableRow>
-            ) : (
-              filteredUsers.map((user) => (
-                <TableRow key={user._id}>
-                  <TableCell>{user.full_name}</TableCell>
-                  <TableCell className="flex items-center gap-2 text-gray-600">
-                    <Mail className="w-4 h-4" />
-                    {user.email}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getRoleBadgeVariant(user.role)}>
-                      {user.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(user.createdAt).toLocaleDateString()}
+            </TableHeader>
+            <TableBody>
+              {filteredUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-gray-500">
+                    No users found. Add your first team member!
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                filteredUsers.map((user) => (
+                  <TableRow key={user._id}>
+                    <TableCell>{user.full_name}</TableCell>
+                    <TableCell className="flex items-center gap-2 text-gray-600 break-words">
+                      <Mail className="w-4 h-4" />
+                      {user.email}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getRoleBadgeVariant(user.role)}>
+                        {user.role}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );
