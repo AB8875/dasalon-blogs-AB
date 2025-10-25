@@ -1,5 +1,4 @@
 "use client";
-
 import * as React from "react";
 import { Pencil, Trash2 } from "lucide-react";
 
@@ -33,29 +32,32 @@ export default function PostsTable<T extends { id: string }>({
   onDelete,
 }: Props<T>) {
   return (
-    <div className="overflow-hidden rounded-lg border">
-      <table className="min-w-full divide-y">
-        <thead className="bg-slate-50">
+    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+      <table className="min-w-full text-sm">
+        <thead className="bg-gray-50">
           <tr>
             {columns.map((col) => (
               <th
                 key={col.header}
-                className="px-4 py-2 text-left text-sm font-medium"
+                className="px-4 py-3 text-left font-medium text-gray-700 whitespace-nowrap"
               >
                 {col.header}
               </th>
             ))}
             {(onEdit || onDelete) && (
-              <th className="px-4 py-2 text-right text-sm font-medium">
+              <th className="px-4 py-3 text-right font-medium text-gray-700">
                 Actions
               </th>
             )}
           </tr>
         </thead>
 
-        <tbody className="bg-white divide-y">
+        <tbody>
           {data.map((record) => (
-            <tr key={record.id}>
+            <tr
+              key={record.id}
+              className="border-t hover:bg-gray-50 transition-colors"
+            >
               {columns.map((col) => (
                 <td
                   key={col.header}
@@ -68,15 +70,13 @@ export default function PostsTable<T extends { id: string }>({
                     : (record as any)[col.accessor]}
                 </td>
               ))}
-
               {(onEdit || onDelete) && (
                 <td className="px-4 py-3 text-right">
-                  <div className="inline-flex items-center gap-2">
+                  <div className="inline-flex gap-2">
                     {onEdit && (
                       <button
                         onClick={() => onEdit(record.id)}
-                        aria-label="Edit"
-                        className="rounded p-1 hover:bg-slate-100"
+                        className="p-1 rounded hover:bg-gray-100"
                       >
                         <Pencil size={16} />
                       </button>
@@ -84,8 +84,7 @@ export default function PostsTable<T extends { id: string }>({
                     {onDelete && (
                       <button
                         onClick={() => onDelete(record.id)}
-                        aria-label="Delete"
-                        className="rounded p-1 hover:bg-slate-100 text-red-600"
+                        className="p-1 rounded hover:bg-gray-100 text-red-600"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -98,13 +97,15 @@ export default function PostsTable<T extends { id: string }>({
         </tbody>
       </table>
 
-      <div className="flex items-center justify-between gap-2 p-3">
-        <div className="text-sm text-slate-500">
-          Showing {data.length} posts
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="rounded px-3 py-1 border">Prev</button>
-          <button className="rounded px-3 py-1 border">Next</button>
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm text-gray-500">
+        <span>Showing {data.length} posts</span>
+        <div className="flex gap-2">
+          <button className="border rounded px-3 py-1 hover:bg-gray-100">
+            Prev
+          </button>
+          <button className="border rounded px-3 py-1 hover:bg-gray-100">
+            Next
+          </button>
         </div>
       </div>
     </div>

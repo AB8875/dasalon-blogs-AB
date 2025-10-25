@@ -166,7 +166,9 @@ export default function PostsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Posts</h1>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">
+            Posts
+          </h1>
           <p className="text-gray-500 mt-1">Manage your blog posts</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -301,7 +303,7 @@ export default function PostsPage() {
       </div>
 
       {/* Posts Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6">
         <Table>
           <TableHeader>
             <TableRow>

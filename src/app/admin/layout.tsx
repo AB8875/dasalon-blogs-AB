@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Toaster } from "sonner";
 import "@/style/globals.css";
 import { Navbar } from "@/components/admin/Navbar";
@@ -13,12 +14,24 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
   const isLoginPage = pathname === "/admin/login";
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // ✅ Special layout for login page
+  // ✅ Close sidebar automatically when window resizes beyond tablet width
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) setIsSidebarOpen(true);
+      else setIsSidebarOpen(false);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   if (isLoginPage) {
     return (
       <html lang="en">
-        <body className="h-screen w-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 dark:from-gray-900 dark:via-gray-950 dark:to-black flex items-center justify-center p-4">
+        <body className="h-screen w-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 flex items-center justify-center p-4">
           {children}
           <Toaster richColors position="top-right" />
         </body>
@@ -26,27 +39,25 @@ export default function AdminLayout({
     );
   }
 
-  // ✅ Normal admin layout
   return (
     <html lang="en">
       <body className="flex h-screen bg-gray-50">
         {/* Sidebar */}
-        <aside className="md:w-64 w-20 border-r bg-white">
-          <Sidebar />
-        </aside>
+        <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Topbar */}
-          <Navbar />
+        {/* Main content area */}
+        <div
+          className={`flex-1 flex flex-col transition-all duration-300 ${
+            isSidebarOpen && window.innerWidth >= 1024 ? "lg:ml-64" : ""
+          }`}
+        >
+          <Navbar setIsSidebarOpen={setIsSidebarOpen} />
 
-          {/* Page Content */}
           <main className="flex-1 overflow-y-auto p-6 py-20 scrollbar-hide">
             {children}
           </main>
         </div>
 
-        {/* Toaster */}
         <Toaster richColors position="top-right" />
       </body>
     </html>
