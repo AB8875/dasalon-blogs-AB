@@ -8,13 +8,20 @@ import TextAlign from "@tiptap/extension-text-align";
 import Link from "@tiptap/extension-link";
 import { Button } from "@/components/ui/button";
 
-export default function RichTextEditor() {
+interface RichTextEditorProps {
+  content?: string;
+  onChange?: (content: string) => void;
+  editable?: boolean;
+}
+
+export default function RichTextEditor({
+  content = "",
+  onChange,
+  editable = true,
+}: RichTextEditorProps) {
   const [isMounted, setIsMounted] = useState(false);
 
-  // ✅ Ensure this only runs on client
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  useEffect(() => setIsMounted(true), []);
 
   const editor = useEditor({
     extensions: [
@@ -23,16 +30,26 @@ export default function RichTextEditor() {
       Link,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
     ],
-    content: "",
+    content,
+    editable,
+    onUpdate: ({ editor }) => {
+      if (onChange) onChange(editor.getHTML());
+    },
     editorProps: {
       attributes: {
         class: "min-h-[150px] px-2 outline-none",
       },
     },
-    immediatelyRender: false, // ✅ Fix SSR hydration warning
+    immediatelyRender: false,
   });
 
-  // ✅ Prevent rendering until after mount
+  // Sync editor content when prop changes
+  useEffect(() => {
+    if (editor && content !== editor.getHTML()) {
+      editor.commands.setContent(content);
+    }
+  }, [content, editor]);
+
   if (!isMounted || !editor) return null;
 
   return (

@@ -16,37 +16,87 @@ async function main() {
   const now = new Date().toISOString();
 
   const categories = [
-    { name: "General", slug: "general", createdAt: now, updatedAt: now },
-    { name: "Tech", slug: "tech", createdAt: now, updatedAt: now },
+    {
+      name: "BEAUTY",
+      slug: "beauty",
+      subCategories: [
+        "beauty tips",
+        "hair",
+        "facial",
+        "skin",
+        "grooming",
+        "makeup",
+        "nail",
+      ],
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      name: "TRENDS",
+      slug: "trends",
+      subCategories: ["influencers", "beauty trends", "celebrities"],
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      name: "CAREER",
+      slug: "career",
+      subCategories: ["hiring talent", "career tips"],
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      name: "FEATURES",
+      slug: "features",
+      subCategories: ["interview stories"],
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      name: "PRODUCT",
+      slug: "product",
+      subCategories: ["product", "equipment"],
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      name: "LOCATION",
+      slug: "location",
+      subCategories: ["india", "singapore"],
+      created_at: now,
+      updated_at: now,
+    },
   ];
+
   const users = [
     {
       name: "Admin User",
       email: "admin@example.com",
       role: "admin",
-      createdAt: now,
+      created_at: now,
     },
     {
       name: "Editor User",
       email: "editor@example.com",
       role: "editor",
-      createdAt: now,
+      created_at: now,
     },
   ];
+
   const posts = [
     {
       title: "Welcome to Mongo",
       slug: "welcome-to-mongo",
       status: "published",
-      createdAt: now,
-      updatedAt: now,
+      created_at: now,
+      updated_at: now,
     },
     {
       title: "Draft Example",
       slug: "draft-example",
       status: "draft",
-      createdAt: now,
-      updatedAt: now,
+      created_at: now,
+      updated_at: now,
     },
   ];
 

@@ -31,6 +31,66 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Category } from "@/types/category";
 
+// ---------------- Hardcoded initial categories ----------------
+const defaultCategories: Category[] = [
+  {
+    id: "1",
+    name: "BEAUTY",
+    slug: "beauty",
+    subCategories: [
+      "beauty tips",
+      "hair",
+      "facial",
+      "skin",
+      "grooming",
+      "makeup",
+      "nail",
+    ],
+    parent_id: null,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "2",
+    name: "TRENDS",
+    slug: "trends",
+    subCategories: ["influencers", "beauty trends", "celebrities"],
+    parent_id: null,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "3",
+    name: "CAREER",
+    slug: "career",
+    subCategories: ["hiring talent", "career tips"],
+    parent_id: null,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "4",
+    name: "FEATURES",
+    slug: "features",
+    subCategories: ["interview stories"],
+    parent_id: null,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "5",
+    name: "PRODUCT",
+    slug: "product",
+    subCategories: ["product", "equipment"],
+    parent_id: null,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "6",
+    name: "LOCATION",
+    slug: "location",
+    subCategories: ["india", "singapore"],
+    parent_id: null,
+    created_at: new Date().toISOString(),
+  },
+];
+
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -45,53 +105,9 @@ export default function AdminCategoriesPage() {
   });
 
   useEffect(() => {
-    fetchCategories();
+    // For now, use hardcoded categories
+    setCategories(defaultCategories);
   }, []);
-
-  // ---------- MongoDB API integration ----------
-  async function fetchCategories() {
-    const res = await fetch("/api/categories");
-    const data = await res.json();
-
-    // Extract the items array from API response
-    setCategories(Array.isArray(data.items) ? data.items : []);
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    const categoryData = {
-      name: formData.name,
-      slug: formData.slug,
-      description: formData.description || null,
-      parent_id: formData.parent_id || null,
-    };
-
-    if (editingCategory) {
-      await fetch(`/api/categories/${editingCategory.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(categoryData),
-      });
-    } else {
-      await fetch("/api/categories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(categoryData),
-      });
-    }
-
-    setIsDialogOpen(false);
-    resetForm();
-    fetchCategories();
-  }
-
-  async function handleDelete(id: string) {
-    if (confirm("Are you sure you want to delete this category?")) {
-      await fetch(`/api/categories/${id}`, { method: "DELETE" });
-      fetchCategories();
-    }
-  }
 
   function resetForm() {
     setFormData({
@@ -120,7 +136,6 @@ export default function AdminCategoriesPage() {
 
   const parentCategories = categories.filter((cat) => !cat.parent_id);
 
-  // ---------- Render ----------
   return (
     <div className="space-y-6">
       {/* Header & Add Button */}
@@ -152,7 +167,7 @@ export default function AdminCategoriesPage() {
                   : "Add a new category or subcategory"}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form className="space-y-4">
               <div>
                 <Label htmlFor="name">Name</Label>
                 <Input
@@ -178,7 +193,7 @@ export default function AdminCategoriesPage() {
               <div>
                 <Label htmlFor="parent">Parent Category (Optional)</Label>
                 <Select
-                  value={formData.parent_id || "none"} // default to "none"
+                  value={formData.parent_id || "none"}
                   onValueChange={(value) =>
                     setFormData({
                       ...formData,
@@ -190,8 +205,7 @@ export default function AdminCategoriesPage() {
                     <SelectValue placeholder="None - Top level category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">None</SelectItem>{" "}
-                    {/* use "none" instead of empty string */}
+                    <SelectItem value="none">None</SelectItem>
                     {parentCategories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}
@@ -249,14 +263,13 @@ export default function AdminCategoriesPage() {
               <TableHead>Name</TableHead>
               <TableHead>Slug</TableHead>
               <TableHead>Parent</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredCategories.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-gray-500">
+                <TableCell colSpan={4} className="text-center text-gray-500">
                   No categories found. Create your first category!
                 </TableCell>
               </TableRow>
@@ -282,9 +295,6 @@ export default function AdminCategoriesPage() {
                         <span className="text-sm text-gray-400">-</span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      {new Date(category.created_at).toLocaleDateString()}
-                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-2 justify-end">
                         <Button
@@ -294,11 +304,7 @@ export default function AdminCategoriesPage() {
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDelete(category.id)}
-                        >
+                        <Button size="sm" variant="outline">
                           <Trash2 className="w-4 h-4 text-red-600" />
                         </Button>
                       </div>

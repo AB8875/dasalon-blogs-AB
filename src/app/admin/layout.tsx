@@ -53,7 +53,7 @@ export default function AdminLayout({
         >
           <Navbar setIsSidebarOpen={setIsSidebarOpen} />
 
-          <main className="flex-1 overflow-y-auto p-4 sm:p-6 py-20 scrollbar-hide">
+          <main className="flex-1 overflow-y-auto p-6 py-20 scrollbar-hide">
             {children}
           </main>
         </div>
