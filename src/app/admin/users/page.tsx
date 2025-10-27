@@ -133,7 +133,7 @@ export default function UsersPage() {
                 Add Member
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-full">
               <DialogHeader>
                 <DialogTitle>Add New Team Member</DialogTitle>
                 <DialogDescription>
@@ -198,62 +198,92 @@ export default function UsersPage() {
         )}
       </div>
 
-      {/* Search + Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6">
-        {/* Search Bar */}
-        <div className="flex items-center gap-4 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <Input
-              type="search"
-              placeholder="Search team members..."
-              className="pl-10"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Table Wrapper (adds horizontal scroll safely on small screens) */}
-        <div className="overflow-x-auto w-full">
-          <Table className="min-w-[600px] w-full text-sm">
-            <TableHeader>
+      {/* Responsive Table */}
+      <div className="overflow-x-auto w-full hidden md:block">
+        <Table className="min-w-[600px] w-full text-sm">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Member</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Joined</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredUsers.length === 0 ? (
               <TableRow>
-                <TableHead>Member</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Joined</TableHead>
+                <TableCell colSpan={4} className="text-center text-gray-500">
+                  No users found. Add your first team member!
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUsers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-gray-500">
-                    No users found. Add your first team member!
+            ) : (
+              filteredUsers.map((user) => (
+                <TableRow key={user._id}>
+                  <TableCell>{user.full_name}</TableCell>
+                  <TableCell className="flex items-center gap-2 text-gray-600 break-words">
+                    <Mail className="w-4 h-4" />
+                    {user.email}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getRoleBadgeVariant(user.role)}>
+                      {user.role}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {new Date(user.createdAt).toLocaleDateString()}
                   </TableCell>
                 </TableRow>
-              ) : (
-                filteredUsers.map((user) => (
-                  <TableRow key={user._id}>
-                    <TableCell>{user.full_name}</TableCell>
-                    <TableCell className="flex items-center gap-2 text-gray-600 break-words">
-                      <Mail className="w-4 h-4" />
-                      {user.email}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getRoleBadgeVariant(user.role)}>
-                        {user.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {new Date(user.createdAt).toLocaleDateString()}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Mobile View (cards with popup) */}
+      <div className="block md:hidden space-y-3">
+        {filteredUsers.length === 0 ? (
+          <p className="text-center text-gray-500 text-sm">
+            No users found. Add your first team member!
+          </p>
+        ) : (
+          filteredUsers.map((user) => (
+            <Dialog key={user._id}>
+              <DialogTrigger asChild>
+                <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-200 shadow-sm active:bg-gray-100">
+                  <div>
+                    <p className="font-semibold text-gray-900">
+                      {user.full_name}
+                    </p>
+                    <p className="text-gray-500 text-sm">{user.role}</p>
+                  </div>
+                  <Plus className="w-5 h-5 rotate-45 text-gray-400" />
+                </div>
+              </DialogTrigger>
+              <DialogContent className="max-w-[300px] sm:max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>{user.full_name}</DialogTitle>
+                  <DialogDescription>User Details</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3 text-sm">
+                  <p>
+                    <span className="font-medium text-gray-700">Email:</span>{" "}
+                    {user.email}
+                  </p>
+                  <p>
+                    <span className="font-medium text-gray-700">Role:</span>{" "}
+                    <Badge variant={getRoleBadgeVariant(user.role)}>
+                      {user.role}
+                    </Badge>
+                  </p>
+                  <p>
+                    <span className="font-medium text-gray-700">Joined:</span>{" "}
+                    {new Date(user.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </DialogContent>
+            </Dialog>
+          ))
+        )}
       </div>
     </div>
   );
