@@ -72,7 +72,7 @@ export function Navbar({
         </div>
 
         {/* Desktop Search Bar (lg and up) */}
-        <div className="hidden lg:flex relative w-full max-w-md lg:max-w-lg ml-auto">
+        <div className="hidden lg:flex  relative w-full max-w-md lg:max-w-lg left-[-240px]  ">
           <Search className="absolute left-3 top-[25px] -translate-y-1/2 text-gray-400 w-5 h-5" />
           <Input
             type="search"
