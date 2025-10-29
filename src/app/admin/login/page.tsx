@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
+import axios from "axios";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,9 +16,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Redirect to dashboard if already logged in
+  // Redirect if already logged in
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("adminToken");
     if (token) {
       router.push("/admin/dashboard");
     }
@@ -31,46 +32,26 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-
     try {
-      // ✅ Demo login fallback
-      if (email === "admin@gmail.com" && password === "admin123") {
-        localStorage.setItem("token", "demo-token");
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            name: "Admin Demo",
-            email: "admin@gmail.com",
-            role: "admin",
-          })
-        );
-        toast.success("Login successful!");
-        router.push("/admin/dashboard");
-        return;
-      }
+      const res = await axios.post(
+        `${
+          process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        }/api/auth/login`,
+        { email, password },
+        { headers: { "Content-Type": "application/json" } }
+      );
 
-      // ✅ Real backend login (when ready)
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const { token, user } = res.data;
 
-      const data = await res.json();
+      // Store token & user info
+      localStorage.setItem("adminToken", token);
+      localStorage.setItem("adminUser", JSON.stringify(user));
 
-      if (!res.ok) {
-        toast.error(data.message || "Invalid credentials");
-        setLoading(false);
-        return;
-      }
-
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
       toast.success("Login successful!");
       router.push("/admin/dashboard");
-    } catch (error) {
-      console.error("Login error:", error);
-      toast.error("Something went wrong, please try again.");
+    } catch (err: any) {
+      console.error("Login error:", err);
+      toast.error(err.response?.data?.message || "Invalid credentials");
     } finally {
       setLoading(false);
     }

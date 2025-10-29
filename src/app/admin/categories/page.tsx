@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import axios from "axios";
 import { Plus, Search, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,73 +31,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Category } from "@/types/category";
-
-// ---------------- Hardcoded initial categories ----------------
-const defaultCategories: Category[] = [
-  {
-    id: "1",
-    name: "BEAUTY",
-    slug: "beauty",
-    subCategories: [
-      "beauty tips",
-      "hair",
-      "facial",
-      "skin",
-      "grooming",
-      "makeup",
-      "nail",
-    ],
-    parent_id: null,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "2",
-    name: "TRENDS",
-    slug: "trends",
-    subCategories: ["influencers", "beauty trends", "celebrities"],
-    parent_id: null,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "3",
-    name: "CAREER",
-    slug: "career",
-    subCategories: ["hiring talent", "career tips"],
-    parent_id: null,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "4",
-    name: "FEATURES",
-    slug: "features",
-    subCategories: ["interview stories"],
-    parent_id: null,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "5",
-    name: "PRODUCT",
-    slug: "product",
-    subCategories: ["product", "equipment"],
-    parent_id: null,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "6",
-    name: "LOCATION",
-    slug: "location",
-    subCategories: ["india", "singapore"],
-    parent_id: null,
-    created_at: new Date().toISOString(),
-  },
-];
+import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-
   const [formData, setFormData] = useState({
     name: "",
     slug: "",
@@ -104,18 +46,35 @@ export default function AdminCategoriesPage() {
     parent_id: "",
   });
 
+  const [token, setToken] = useState<string | null>(null);
+
   useEffect(() => {
-    // For now, use hardcoded categories
-    setCategories(defaultCategories);
+    const t = localStorage.getItem("token");
+    setToken(t);
   }, []);
 
+  // ---------------- Fetch categories ----------------
+  const fetchCategories = async () => {
+    try {
+      const res = await axios.get(`${apiFetch}/api/categories`, {
+        headers: { Authorization: token ? `Bearer ${token}` : "" },
+      });
+
+      setCategories(res.data);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to fetch categories");
+    }
+  };
+
+  useEffect(() => {
+    if (!token) return; // wait for token
+    fetchCategories();
+  }, [token]);
+
+  // ---------------- Reset form ----------------
   function resetForm() {
-    setFormData({
-      name: "",
-      slug: "",
-      description: "",
-      parent_id: "",
-    });
+    setFormData({ name: "", slug: "", description: "", parent_id: "" });
     setEditingCategory(null);
   }
 
@@ -129,6 +88,58 @@ export default function AdminCategoriesPage() {
     });
     setIsDialogOpen(true);
   }
+
+  // ---------------- Create / Update Category ----------------
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingCategory) {
+        // Update
+        const res = await axios.put(
+          `${
+            process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+          }/api/categories/${editingCategory.id}`,
+          formData,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        toast.success("Category updated successfully!");
+      } else {
+        // Create
+        const res = await axios.post(
+          `${
+            process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+          }/api/categories`,
+          formData,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        toast.success("Category created successfully!");
+      }
+      setIsDialogOpen(false);
+      fetchCategories();
+      resetForm();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to save category");
+    }
+  };
+
+  // ---------------- Delete Category ----------------
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this category?")) return;
+    try {
+      await axios.delete(
+        `${
+          process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        }/api/categories/${id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success("Category deleted successfully!");
+      fetchCategories();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to delete category");
+    }
+  };
 
   const filteredCategories = categories.filter((category) =>
     category.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -152,8 +163,7 @@ export default function AdminCategoriesPage() {
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2" onClick={resetForm}>
-              <Plus className="w-4 h-4" />
-              New Category
+              <Plus className="w-4 h-4" /> New Category
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -167,7 +177,7 @@ export default function AdminCategoriesPage() {
                   : "Add a new category or subcategory"}
               </DialogDescription>
             </DialogHeader>
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={handleSubmit}>
               <div>
                 <Label htmlFor="name">Name</Label>
                 <Input
@@ -304,7 +314,11 @@ export default function AdminCategoriesPage() {
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="outline">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDelete(category.id)}
+                        >
                           <Trash2 className="w-4 h-4 text-red-600" />
                         </Button>
                       </div>
