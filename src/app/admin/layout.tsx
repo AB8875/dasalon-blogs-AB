@@ -39,11 +39,19 @@ export default function AdminLayout({
     );
   }
 
+  function handleSidebarMenuClick(): void {
+    throw new Error("Function not implemented.");
+  }
+
   return (
     <html lang="en">
       <body className="flex h-screen bg-gray-50">
         {/* Sidebar */}
-        <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+        <Sidebar
+          isOpen={isSidebarOpen}
+          setIsOpen={setIsSidebarOpen}
+          onMenuClick={handleSidebarMenuClick}
+        />
 
         {/* Main content area */}
         <div

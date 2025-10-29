@@ -29,7 +29,11 @@ const Navbar: React.FC = () => {
     const fetchMenu = async () => {
       try {
         const menuData = await getSubMenu();
-        const transformed = transformMenuDataToNavLinks(menuData?.data || []);
+        // Handle new API response structure - data is directly the array
+        const menuArray = Array.isArray(menuData)
+          ? menuData
+          : menuData?.data || [];
+        const transformed = transformMenuDataToNavLinks(menuArray);
         setNavLinks(transformed);
       } catch (err) {
         console.error("Error fetching menu:", err);
@@ -174,7 +178,7 @@ const Navbar: React.FC = () => {
                   <Link
                     href={item.titlePath}
                     className={`ff-jost border-b-2 pb-0.5 text-sm font-medium tracking-wider duration-200 ${
-                      activeIndex === item.documentId
+                      activeIndex === item._id
                         ? "border-primary"
                         : "border-transparent"
                     } group-hover:border-primary`}
@@ -188,9 +192,7 @@ const Navbar: React.FC = () => {
                           key={i}
                           href={submenu.dropdownpath}
                           className={`block whitespace-nowrap px-6 py-2 text-sm font-medium hover:text-primary ${
-                            activesubMenu === submenu.documentId
-                              ? "text-primary"
-                              : ""
+                            activesubMenu === submenu._id ? "text-primary" : ""
                           }`}
                           onClick={() => setDropdownKey((prev) => prev + 1)}
                         >

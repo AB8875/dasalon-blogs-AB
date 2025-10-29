@@ -12,21 +12,18 @@ export function slugify(str: string): string {
 export function transformMenuDataToNavLinks(apiData: IMenuItem[]) {
   return apiData.map((menuItem) => ({
     title: menuItem?.name?.toUpperCase(),
-    titlePath: `/${slugify(menuItem.name) + "/" + menuItem.documentId}/${
-      menuItem?.submenus?.[0]?.documentId || ""
+    titlePath: `/${slugify(menuItem.name) + "/" + menuItem._id}/${
+      menuItem?.submenus?.[0]?._id || ""
     }`,
-    documentId: menuItem.documentId,
+    _id: menuItem._id,
     dropdownClass: "",
-    dropDown: menuItem.submenus.map((submenu) => ({
-      documentId: submenu.documentId,
-      dropdown: submenu.name,
-      dropdownpath: `/${
-        slugify(menuItem.name) +
-        "/" +
-        menuItem.documentId +
-        "/" +
-        submenu.documentId
-      }`,
-    })),
+    dropDown:
+      menuItem.submenus?.map((submenu) => ({
+        _id: submenu._id,
+        dropdown: submenu.name,
+        dropdownpath: `/${
+          slugify(menuItem.name) + "/" + menuItem._id + "/" + submenu._id
+        }`,
+      })) || [],
   }));
 }

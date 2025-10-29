@@ -16,7 +16,9 @@ interface SidebarDropDownProps {
 
 const SidebarDropDown = ({ closeSidebar }: SidebarDropDownProps) => {
   const { data: menuData } = useSubMenu();
-  const navLinks = transformMenuDataToNavLinks(menuData?.data || []);
+  // Handle new API response structure - data is directly the array
+  const menuArray = Array.isArray(menuData) ? menuData : menuData?.data || [];
+  const navLinks = transformMenuDataToNavLinks(menuArray);
 
   return (
     <div className="px-6 flex flex-col">

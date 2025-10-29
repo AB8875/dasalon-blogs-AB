@@ -1,14 +1,23 @@
 export type ISubmenu = {
-  documentId: string;
+  _id: string;
   name: string;
-  id: string;
+  slug: string;
+  description?: string;
+  status: boolean;
+  parent_id: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type IMenuItem = {
-  id: number;
+  _id: string;
   name: string;
-  submenus: ISubmenu[];
-  documentId: string;
+  slug: string;
+  description?: string;
+  status: boolean;
+  createdAt: string;
+  updatedAt: string;
+  submenus?: ISubmenu[];
 };
 export type ISocialMedia = {
   insta: string;
@@ -105,7 +114,7 @@ export type IBlogCard = IBlogItem & {
 export type NavDropdown = {
   dropdown: string;
   dropdownpath: string;
-  documentId: string;
+  _id: string;
 };
 
 export type NavLink = {
@@ -113,7 +122,7 @@ export type NavLink = {
   titlePath: string;
   dropDown: NavDropdown[];
   dropdownClass?: string;
-  documentId: string;
+  _id: string;
 };
 
 export type NavbarClientProps = {

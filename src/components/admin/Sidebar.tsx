@@ -19,13 +19,13 @@ interface User {
   avatar_url?: string;
 }
 
-export function Sidebar({
-  isOpen,
-  setIsOpen,
-}: {
+interface SidebarProps {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
-}) {
+  onMenuClick?: () => void; // <-- new prop
+}
+
+export function Sidebar({ isOpen, setIsOpen, onMenuClick }: SidebarProps) {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
 
@@ -36,7 +36,6 @@ export function Sidebar({
 
   return (
     <>
-      {/* Overlay for mobile */}
       {isOpen && window.innerWidth < 1024 && (
         <div
           className="fixed inset-0 bg-black/40 z-40 lg:hidden"
@@ -59,8 +58,6 @@ export function Sidebar({
             <h1 className="text-2xl font-bold text-gray-900">Dasalon Blogs</h1>
             <p className="text-sm text-gray-500 mt-1">Admin Panel</p>
           </div>
-
-          {/* Close Arrow for tablet/mobile */}
           <button
             onClick={() => setIsOpen(false)}
             className="lg:hidden p-2 rounded-md hover:bg-gray-100"
@@ -74,6 +71,7 @@ export function Sidebar({
           {sidebarLinks.map((link) => {
             const Icon = link.icon;
             const isActive = pathname === link.href;
+
             return (
               <Link
                 key={link.href}
@@ -86,6 +84,7 @@ export function Sidebar({
                 )}
                 onClick={() => {
                   if (window.innerWidth < 1024) setIsOpen(false);
+                  if (link.href === "/admin/menu") onMenuClick?.(); // <-- refresh menu
                 }}
               >
                 <Icon className="w-5 h-5" />

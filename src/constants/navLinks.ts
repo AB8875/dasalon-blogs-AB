@@ -5,12 +5,12 @@ const beautyDropdown: NavDropdown[] = [
   {
     dropdown: "Skincare",
     dropdownpath: "/categories/beauty/skincare",
-    documentId: "skincare",
+    _id: "skincare",
   },
   {
     dropdown: "Makeup",
     dropdownpath: "/categories/beauty/makeup",
-    documentId: "makeup",
+    _id: "makeup",
   },
 ];
 
@@ -18,43 +18,43 @@ export const navLinks: NavLink[] = [
   {
     title: "BEAUTY",
     titlePath: "/categories/beauty",
-    documentId: "beauty",
+    _id: "beauty",
     dropDown: beautyDropdown,
   },
   {
     title: "TRENDS",
     titlePath: "/categories/trends",
-    documentId: "trends",
+    _id: "trends",
     dropDown: beautyDropdown,
   },
   {
     title: "CAREER",
     titlePath: "/categories/career",
-    documentId: "career",
+    _id: "career",
     dropDown: beautyDropdown,
   },
   {
     title: "FEATURED",
     titlePath: "/categories/featured",
-    documentId: "featured",
+    _id: "featured",
     dropDown: beautyDropdown,
   },
   {
     title: "PRODUCT",
     titlePath: "/categories/product",
-    documentId: "product",
+    _id: "product",
     dropDown: beautyDropdown,
   },
   {
     title: "BUSINESS",
     titlePath: "/categories/business",
-    documentId: "business",
+    _id: "business",
     dropDown: beautyDropdown,
   },
   {
     title: "LOCATION",
     titlePath: "/categories/location",
-    documentId: "location",
+    _id: "location",
     dropDown: beautyDropdown,
   },
 ];

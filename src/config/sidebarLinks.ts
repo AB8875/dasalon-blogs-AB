@@ -8,7 +8,7 @@ export const sidebarLinks: {
 }[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/posts", label: "Posts", icon: FileText, badge: "3" },
-  { href: "/admin/categories", label: "Categories", icon: Tags },
+  { href: "/admin/menu", label: "Menu", icon: Tags },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
