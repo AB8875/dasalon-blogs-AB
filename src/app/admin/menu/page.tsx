@@ -47,11 +47,13 @@ export default function AdminMenuPage() {
 
   const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
+  // ---------------------- FETCH TOKEN ----------------------
   useEffect(() => {
     const t = localStorage.getItem("token");
     if (t) setToken(t);
   }, []);
 
+  // ---------------------- FETCH MENUS ----------------------
   const fetchMenus = async () => {
     if (!token) return;
     try {
@@ -59,19 +61,40 @@ export default function AdminMenuPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const mapped: MenuType[] = data.map((item: any) => ({
-        id: item.menu._id,
-        name: item.menu.name,
-        slug: item.menu.slug,
-        description: item.menu.description || "",
-        submenus:
-          item.submenus?.map((sub: any) => ({
-            id: sub._id,
-            name: sub.name,
-            slug: sub.slug,
-            description: sub.description || "",
-          })) || [],
-      }));
+      // 🧠 Auto-detect structure
+      const mapped: MenuType[] = data.map((item: any) => {
+        if (item.menu) {
+          // backend structure: { menu: {}, submenus: [] }
+          return {
+            id: item.menu._id,
+            name: item.menu.name,
+            slug: item.menu.slug,
+            description: item.menu.description || "",
+            submenus:
+              item.submenus?.map((sub: any) => ({
+                id: sub._id,
+                name: sub.name,
+                slug: sub.slug,
+                description: sub.description || "",
+              })) || [],
+          };
+        } else {
+          // backend structure: [ { _id, name, slug, submenus: [] } ]
+          return {
+            id: item._id,
+            name: item.name,
+            slug: item.slug,
+            description: item.description || "",
+            submenus:
+              item.submenus?.map((sub: any) => ({
+                id: sub._id,
+                name: sub.name,
+                slug: sub.slug,
+                description: sub.description || "",
+              })) || [],
+          };
+        }
+      });
 
       setMenus(mapped);
     } catch (error) {
@@ -80,17 +103,18 @@ export default function AdminMenuPage() {
     }
   };
 
-  // Fetch menus whenever token changes or page loads
   useEffect(() => {
     if (token) fetchMenus();
   }, [token]);
 
+  // ---------------------- RESET FORM ----------------------
   const resetForm = () => {
     setEditingMenu(null);
     setSelectedParent(null);
     setSubmenuForm({ name: "", slug: "", description: "" });
   };
 
+  // ---------------------- EDIT MENU ----------------------
   const handleEditMenu = (menu: MenuType) => {
     setEditingMenu(menu);
     setSubmenuForm({
@@ -102,47 +126,106 @@ export default function AdminMenuPage() {
     setIsDialogOpen(true);
   };
 
+  // ---------------------- ADD SUBMENU ----------------------
   const handleAddSubmenu = (parentId: string) => {
     setSelectedParent(parentId);
     setSubmenuForm({ name: "", slug: "", description: "" });
     setIsDialogOpen(true);
   };
 
+  // ---------------------- CREATE / UPDATE MENU ----------------------
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const payload = { ...submenuForm };
 
+      let response;
       if (selectedParent) {
-        await axios.post(
+        // Create Submenu
+        response = await axios.post(
           `${base}/api/menu/submenus`,
           { ...payload, parent_id: selectedParent },
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
         toast.success("Submenu created successfully!");
       } else if (editingMenu) {
-        await axios.put(`${base}/api/menu/menus/${editingMenu.id}`, payload, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        // Edit Menu
+        response = await axios.put(
+          `${base}/api/menu/menus/${editingMenu.id}`,
+          payload,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
         toast.success("Menu updated successfully!");
       } else {
-        await axios.post(`${base}/api/menu/menus`, payload, {
+        // Create Menu
+        response = await axios.post(`${base}/api/menu/menus`, payload, {
           headers: { Authorization: `Bearer ${token}` },
         });
         toast.success("Menu created successfully!");
       }
 
+      // ---------------------- Update menus instantly ----------------------
+      const newMenu = response?.data;
+      if (newMenu) {
+        setMenus((prev) => {
+          // If submenu
+          if (selectedParent) {
+            return prev.map((menu) =>
+              menu.id === selectedParent
+                ? {
+                    ...menu,
+                    submenus: [
+                      ...(menu.submenus || []),
+                      {
+                        id: newMenu._id,
+                        name: newMenu.name,
+                        slug: newMenu.slug,
+                        description: newMenu.description || "",
+                      },
+                    ],
+                  }
+                : menu
+            );
+          }
+          // If editing
+          else if (editingMenu) {
+            return prev.map((menu) =>
+              menu.id === editingMenu.id
+                ? {
+                    ...menu,
+                    name: newMenu.name,
+                    slug: newMenu.slug,
+                    description: newMenu.description,
+                  }
+                : menu
+            );
+          }
+          // If new menu
+          else {
+            return [
+              ...prev,
+              {
+                id: newMenu._id,
+                name: newMenu.name,
+                slug: newMenu.slug,
+                description: newMenu.description || "",
+                submenus: [],
+              },
+            ];
+          }
+        });
+      }
+
+      // ---------------------- Cleanup ----------------------
       setIsDialogOpen(false);
       resetForm();
-      fetchMenus(); // refresh menus immediately
     } catch (error: any) {
       console.error(error);
       toast.error(error.response?.data?.message || "Failed to save");
     }
   };
 
+  // ---------------------- DELETE MENU ----------------------
   const handleDelete = async (id: string, parentId?: string) => {
     if (!confirm("Are you sure you want to delete this?")) return;
     try {
@@ -150,32 +233,45 @@ export default function AdminMenuPage() {
         await axios.delete(`${base}/api/menu/submenus/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        setMenus((prev) =>
+          prev.map((menu) =>
+            menu.id === parentId
+              ? {
+                  ...menu,
+                  submenus: menu.submenus?.filter((sub) => sub.id !== id),
+                }
+              : menu
+          )
+        );
       } else {
         await axios.delete(`${base}/api/menu/menus/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        setMenus((prev) => prev.filter((menu) => menu.id !== id));
       }
+
       toast.success("Deleted successfully!");
-      fetchMenus();
     } catch (error) {
       console.error(error);
       toast.error("Failed to delete");
     }
   };
 
+  // ---------------------- FILTER SEARCH ----------------------
   const filteredMenus = menus.filter((menu) =>
     menu.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // ---------------------- RENDER ----------------------
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">
-            Menu
-          </h1>
-          <p className="text-gray-500 mt-1">Organize your posts into menus</p>
+          <h1 className="text-2xl font-bold text-gray-900">Menu</h1>
+          <p className="text-gray-500 mt-1">
+            Organize your posts into menus and submenus
+          </p>
         </div>
 
         {/* Dialog for create/edit */}
@@ -196,8 +292,8 @@ export default function AdminMenuPage() {
               </DialogTitle>
               <DialogDescription>
                 {selectedParent
-                  ? "Add a new submenu"
-                  : "Fill the details for menu"}
+                  ? "Add a new submenu under this menu."
+                  : "Fill in the menu details below."}
               </DialogDescription>
             </DialogHeader>
 
@@ -238,7 +334,7 @@ export default function AdminMenuPage() {
                   rows={3}
                 />
               </div>
-              <div className="flex gap-2 justify-end">
+              <div className="flex justify-end gap-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -259,7 +355,7 @@ export default function AdminMenuPage() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6">
         <div className="flex items-center gap-4 mb-6">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <Input
               type="search"
               placeholder="Search menus..."
@@ -275,9 +371,10 @@ export default function AdminMenuPage() {
             <TableRow>
               <TableHead>Menu</TableHead>
               <TableHead>Slug</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
+
           <TableBody>
             {filteredMenus.length === 0 ? (
               <TableRow>
@@ -319,7 +416,9 @@ export default function AdminMenuPage() {
                   {/* Submenus */}
                   {menu.submenus?.map((sub) => (
                     <TableRow key={sub.id}>
-                      <TableCell className="pl-8">↳ {sub.name}</TableCell>
+                      <TableCell className="pl-8 text-gray-700">
+                        ↳ {sub.name}
+                      </TableCell>
                       <TableCell>{sub.slug}</TableCell>
                       <TableCell className="flex gap-2 justify-end">
                         <Button
@@ -327,6 +426,7 @@ export default function AdminMenuPage() {
                           variant="outline"
                           onClick={() => {
                             setSelectedParent(menu.id);
+                            setEditingMenu(sub);
                             setSubmenuForm(sub);
                             setIsDialogOpen(true);
                           }}
