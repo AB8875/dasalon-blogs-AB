@@ -85,7 +85,7 @@ export const getMenuById = async (id: string) => {
     );
     // Return mock data for specific menu
     const mockMenus = await getMenusWithSubmenus();
-    return mockMenus.find((menu) => menu._id === id) || null;
+    return mockMenus.find((menu: { _id: string }) => menu._id === id) || null;
   }
 };
 

@@ -25,17 +25,19 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const [formData, setFormData] = useState<SiteSettings>({
-    site_name: "",
-    site_description: "",
-    logo_url: "",
-    favicon_url: "",
-    facebook_url: "",
-    twitter_url: "",
-    instagram_url: "",
-    linkedin_url: "",
+    siteName: "",
+    siteDescription: "",
+    logo: "",
+    favicon: "",
+    social: {
+      facebook: "",
+      twitter: "",
+      instagram: "",
+      linkedin: "",
+    }, // always defined
     theme: "light",
-    posts_per_page: 10,
-    updated_at: "",
+    postsPerPage: 10,
+    updatedAt: "",
   });
 
   useEffect(() => {
@@ -44,10 +46,24 @@ export default function SettingsPage() {
 
   async function fetchSettings() {
     try {
-      const data = await apiFetch<SiteSettings>("/settings");
+      const data = await apiFetch<SiteSettings>("/api/settings");
       if (data) {
         setSettings(data);
-        setFormData(data);
+        setFormData({
+          siteName: data.siteName || "",
+          siteDescription: data.siteDescription || "",
+          logo: data.logo || "",
+          favicon: data.favicon || "",
+          social: {
+            facebook: data.social?.facebook || "",
+            twitter: data.social?.twitter || "",
+            instagram: data.social?.instagram || "",
+            linkedin: data.social?.linkedin || "",
+          },
+          theme: data.theme || "light",
+          postsPerPage: data.postsPerPage || 10,
+          updatedAt: data.updatedAt || "",
+        });
       }
     } catch (err) {
       console.error("Failed to fetch settings:", err);
@@ -60,12 +76,12 @@ export default function SettingsPage() {
 
     const updateData = {
       ...formData,
-      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     try {
-      if (settings) {
-        await apiFetch(`/settings/${settings._id}`, {
+      if (settings?._id) {
+        await apiFetch(`/api/settings/${settings._id}`, {
           method: "PUT",
           body: JSON.stringify(updateData),
         });
@@ -74,7 +90,7 @@ export default function SettingsPage() {
           description: "Settings updated successfully.",
         });
       } else {
-        await apiFetch("/settings", {
+        await apiFetch("/api/settings", {
           method: "POST",
           body: JSON.stringify(updateData),
         });
@@ -92,7 +108,6 @@ export default function SettingsPage() {
         variant: "destructive",
       });
     }
-
     setIsLoading(false);
   }
 
@@ -116,23 +131,23 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="site_name">Site Name</Label>
+              <Label htmlFor="siteName">Site Name</Label>
               <Input
-                id="site_name"
-                value={formData.site_name}
+                id="siteName"
+                value={formData.siteName}
                 onChange={(e) =>
-                  setFormData({ ...formData, site_name: e.target.value })
+                  setFormData({ ...formData, siteName: e.target.value })
                 }
                 required
               />
             </div>
             <div>
-              <Label htmlFor="site_description">Site Description</Label>
+              <Label htmlFor="siteDescription">Site Description</Label>
               <Textarea
-                id="site_description"
-                value={formData.site_description}
+                id="siteDescription"
+                value={formData.siteDescription}
                 onChange={(e) =>
-                  setFormData({ ...formData, site_description: e.target.value })
+                  setFormData({ ...formData, siteDescription: e.target.value })
                 }
                 rows={3}
                 required
@@ -140,24 +155,24 @@ export default function SettingsPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="logo_url">Logo URL</Label>
+                <Label htmlFor="logo">Logo URL</Label>
                 <Input
-                  id="logo_url"
+                  id="logo"
                   type="url"
-                  value={formData.logo_url}
+                  value={formData.logo}
                   onChange={(e) =>
-                    setFormData({ ...formData, logo_url: e.target.value })
+                    setFormData({ ...formData, logo: e.target.value })  
                   }
                 />
               </div>
               <div>
-                <Label htmlFor="favicon_url">Favicon URL</Label>
+                <Label htmlFor="favicon">Favicon URL</Label>
                 <Input
-                  id="favicon_url"
+                  id="favicon"
                   type="url"
-                  value={formData.favicon_url}
+                  value={formData.favicon}
                   onChange={(e) =>
-                    setFormData({ ...formData, favicon_url: e.target.value })
+                    setFormData({ ...formData, favicon: e.target.value })
                   }
                 />
               </div>
@@ -171,42 +186,54 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="facebook_url">Facebook</Label>
+              <Label htmlFor="facebook">Facebook</Label>
               <Input
-                id="facebook_url"
-                value={formData.facebook_url}
+                id="facebook"
+                value={formData.social?.facebook}
                 onChange={(e) =>
-                  setFormData({ ...formData, facebook_url: e.target.value })
+                  setFormData({
+                    ...formData,
+                    social: { ...formData.social, facebook: e.target.value },
+                  })
                 }
               />
             </div>
             <div>
-              <Label htmlFor="twitter_url">Twitter</Label>
+              <Label htmlFor="twitter">Twitter</Label>
               <Input
-                id="twitter_url"
-                value={formData.twitter_url}
+                id="twitter"
+                value={formData.social?.twitter}
                 onChange={(e) =>
-                  setFormData({ ...formData, twitter_url: e.target.value })
+                  setFormData({
+                    ...formData,
+                    social: { ...formData.social, twitter: e.target.value },
+                  })
                 }
               />
             </div>
             <div>
-              <Label htmlFor="instagram_url">Instagram</Label>
+              <Label htmlFor="instagram">Instagram</Label>
               <Input
-                id="instagram_url"
-                value={formData.instagram_url}
+                id="instagram"
+                value={formData.social?.instagram}
                 onChange={(e) =>
-                  setFormData({ ...formData, instagram_url: e.target.value })
+                  setFormData({
+                    ...formData,
+                    social: { ...formData.social, instagram: e.target.value },
+                  })
                 }
               />
             </div>
             <div>
-              <Label htmlFor="linkedin_url">LinkedIn</Label>
+              <Label htmlFor="linkedin">LinkedIn</Label>
               <Input
-                id="linkedin_url"
-                value={formData.linkedin_url}
+                id="linkedin"
+                value={formData.social?.linkedin}
                 onChange={(e) =>
-                  setFormData({ ...formData, linkedin_url: e.target.value })
+                  setFormData({
+                    ...formData,
+                    social: { ...formData.social, linkedin: e.target.value },
+                  })
                 }
               />
             </div>
@@ -222,8 +249,11 @@ export default function SettingsPage() {
               <Label htmlFor="theme">Theme</Label>
               <Select
                 value={formData.theme}
-                onValueChange={(value: any) =>
-                  setFormData({ ...formData, theme: value })
+                onValueChange={(value: string) =>
+                  setFormData({
+                    ...formData,
+                    theme: value as "light" | "dark" | "system",
+                  })
                 }
               >
                 <SelectTrigger>
@@ -237,17 +267,17 @@ export default function SettingsPage() {
               </Select>
             </div>
             <div>
-              <Label htmlFor="posts_per_page">Posts Per Page</Label>
+              <Label htmlFor="postsPerPage">Posts Per Page</Label>
               <Input
-                id="posts_per_page"
+                id="postsPerPage"
                 type="number"
                 min={1}
                 max={50}
-                value={formData.posts_per_page}
+                value={formData.postsPerPage}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    posts_per_page: parseInt(e.target.value),
+                    postsPerPage: parseInt(e.target.value),
                   })
                 }
               />

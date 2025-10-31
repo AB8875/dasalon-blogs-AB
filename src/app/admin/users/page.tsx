@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Search, Mail } from "lucide-react";
+import { Plus, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -32,10 +32,10 @@ import { Badge } from "@/components/ui/badge";
 
 type User = {
   _id: string;
-  full_name: string;
+  name: string;
   email: string;
-  role: "admin" | "editor" | "author";
-  createdAt: string; // ✅ match API field
+  role: "admin" | "author" | "user";
+  createdAt: string;
 };
 
 export default function UsersPage() {
@@ -43,69 +43,100 @@ export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
-    full_name: "",
+    name: "",
     email: "",
-    role: "author" as "admin" | "editor" | "author",
+    role: "author" as "admin" | "author" | "user",
+    password: "",
   });
   const [currentUserRole, setCurrentUserRole] = useState<
-    "admin" | "editor" | "author" | null
+    "admin" | "author" | "user" | null
   >(null);
+
+  const BACKEND_URL = "http://localhost:4000";
 
   useEffect(() => {
     fetchUsers();
+
+    // Robustly load user from localStorage after login
     const userData = localStorage.getItem("user");
     if (userData) {
-      const user = JSON.parse(userData);
-      setCurrentUserRole(user.role);
+      try {
+        const user = JSON.parse(userData);
+        if (user?.role) {
+          setCurrentUserRole(user.role);
+        } else {
+          setCurrentUserRole(null);
+        }
+      } catch {
+        setCurrentUserRole(null);
+      }
+    } else {
+      setCurrentUserRole(null);
     }
   }, []);
 
   async function fetchUsers() {
     try {
-      const res = await fetch("/api/users");
+      const res = await fetch(`${BACKEND_URL}/api/users`);
+      if (!res.ok) throw new Error(`Failed to fetch users: ${res.statusText}`);
       const data = await res.json();
       if (Array.isArray(data.items)) {
-        setUsers(data.items); // ✅ use data.items
+        setUsers(data.items);
       } else {
         setUsers([]);
       }
     } catch (err) {
-      console.error("Failed to fetch users:", err);
+      console.error(err);
       setUsers([]);
     }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!formData.password) {
+      alert("Please enter a password");
+      return;
+    }
+
     try {
-      await fetch("/api/users", {
+      const res = await fetch(`${BACKEND_URL}/api/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to add user");
+      }
       setIsDialogOpen(false);
-      setFormData({ full_name: "", email: "", role: "author" });
+      setFormData({ name: "", email: "", role: "author", password: "" });
       fetchUsers();
     } catch (err) {
       console.error("Error adding user:", err);
+      alert(err instanceof Error ? err.message : "Error adding user");
     }
   }
 
   const filteredUsers = users.filter(
     (user) =>
-      user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.role.toLowerCase().includes(searchQuery.toLowerCase())
+      (user.name?.toLowerCase() ?? "").includes(searchQuery.toLowerCase()) ||
+      (user.email?.toLowerCase() ?? "").includes(searchQuery.toLowerCase()) ||
+      (user.role?.toLowerCase() ?? "").includes(searchQuery.toLowerCase())
   );
 
-  function getRoleBadgeVariant(role: string) {
+  function getRoleBadgeVariant(
+    role: string
+  ): "default" | "outline" | "destructive" | "secondary" | undefined {
     switch (role) {
       case "admin":
         return "default";
-      case "editor":
+      case "author":
+        return "outline";
+      case "user":
         return "secondary";
       default:
-        return "outline";
+        return undefined;
     }
   }
 
@@ -126,7 +157,12 @@ export default function UsersPage() {
               <Button
                 className="gap-2"
                 onClick={() =>
-                  setFormData({ full_name: "", email: "", role: "author" })
+                  setFormData({
+                    name: "",
+                    email: "",
+                    role: "author",
+                    password: "",
+                  })
                 }
               >
                 <Plus className="w-4 h-4" />
@@ -142,12 +178,12 @@ export default function UsersPage() {
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="full_name">Full Name</Label>
+                  <Label htmlFor="name">Full Name</Label>
                   <Input
-                    id="full_name"
-                    value={formData.full_name}
+                    id="name"
+                    value={formData.name}
                     onChange={(e) =>
-                      setFormData({ ...formData, full_name: e.target.value })
+                      setFormData({ ...formData, name: e.target.value })
                     }
                     required
                   />
@@ -165,10 +201,22 @@ export default function UsersPage() {
                   />
                 </div>
                 <div>
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div>
                   <Label htmlFor="role">Role</Label>
                   <Select
                     value={formData.role}
-                    onValueChange={(value: any) =>
+                    onValueChange={(value: User["role"]) =>
                       setFormData({ ...formData, role: value })
                     }
                   >
@@ -177,8 +225,8 @@ export default function UsersPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="editor">Editor</SelectItem>
                       <SelectItem value="author">Author</SelectItem>
+                      <SelectItem value="user">User</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -197,6 +245,14 @@ export default function UsersPage() {
           </Dialog>
         )}
       </div>
+
+      {/* Search Input */}
+      <Input
+        placeholder="Search by name, email, or role"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        className="max-w-sm"
+      />
 
       {/* Responsive Table */}
       <div className="overflow-x-auto w-full hidden md:block">
@@ -219,7 +275,7 @@ export default function UsersPage() {
             ) : (
               filteredUsers.map((user) => (
                 <TableRow key={user._id}>
-                  <TableCell>{user.full_name}</TableCell>
+                  <TableCell>{user.name}</TableCell>
                   <TableCell className="flex items-center gap-2 text-gray-600 break-words">
                     <Mail className="w-4 h-4" />
                     {user.email}
@@ -251,9 +307,7 @@ export default function UsersPage() {
               <DialogTrigger asChild>
                 <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-200 shadow-sm active:bg-gray-100">
                   <div>
-                    <p className="font-semibold text-gray-900">
-                      {user.full_name}
-                    </p>
+                    <p className="font-semibold text-gray-900">{user.name}</p>
                     <p className="text-gray-500 text-sm">{user.role}</p>
                   </div>
                   <Plus className="w-5 h-5 rotate-45 text-gray-400" />
@@ -261,7 +315,7 @@ export default function UsersPage() {
               </DialogTrigger>
               <DialogContent className="max-w-[300px] sm:max-w-sm">
                 <DialogHeader>
-                  <DialogTitle>{user.full_name}</DialogTitle>
+                  <DialogTitle>{user.name}</DialogTitle>
                   <DialogDescription>User Details</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-3 text-sm">

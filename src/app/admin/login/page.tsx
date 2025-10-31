@@ -18,8 +18,10 @@ export default function LoginPage() {
 
   // Redirect if already logged in
   useEffect(() => {
-    const token = localStorage.getItem("adminToken");
-    if (token) {
+    const token = localStorage.getItem("token"); // Changed to generic "token"
+    const user = localStorage.getItem("user");
+    if (token && user) {
+      // Redirect to dashboard for any authenticated user
       router.push("/admin/dashboard");
     }
   }, [router]);
@@ -43,9 +45,9 @@ export default function LoginPage() {
 
       const { token, user } = res.data;
 
-      // Store token & user info
-      localStorage.setItem("adminToken", token);
-      localStorage.setItem("adminUser", JSON.stringify(user));
+      // Store token & user info using generic keys for universal roles
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user)); // Main universal key
 
       toast.success("Login successful!");
       router.push("/admin/dashboard");

@@ -49,17 +49,23 @@ export default function AdminMenuPage() {
 
   // ---------------------- FETCH TOKEN ----------------------
   useEffect(() => {
-    const t = localStorage.getItem("token");
+    const t = localStorage.getItem("adminToken");
+    console.log("Token from localStorage:", t ? "exists" : "missing");
     if (t) setToken(t);
   }, []);
 
   // ---------------------- FETCH MENUS ----------------------
   const fetchMenus = async () => {
-    if (!token) return;
+    if (!token) {
+      console.log("No token available yet");
+      return;
+    }
     try {
+      console.log("Fetching menus from:", `${base}/api/menu/admin/all`);
       const { data } = await axios.get(`${base}/api/menu/admin/all`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      console.log("Fetched data:", data);
 
       // 🧠 Auto-detect structure
       const mapped: MenuType[] = data.map((item: any) => {
@@ -104,7 +110,7 @@ export default function AdminMenuPage() {
   };
 
   useEffect(() => {
-    if (token) fetchMenus();
+    fetchMenus();
   }, [token]);
 
   // ---------------------- RESET FORM ----------------------
