@@ -161,7 +161,7 @@ export default function SettingsPage() {
                   type="url"
                   value={formData.logo}
                   onChange={(e) =>
-                    setFormData({ ...formData, logo: e.target.value })  
+                    setFormData({ ...formData, logo: e.target.value })
                   }
                 />
               </div>

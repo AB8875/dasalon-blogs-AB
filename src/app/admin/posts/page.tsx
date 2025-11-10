@@ -724,6 +724,6 @@ const CreatePostModal = ({
           </div>
         </div>
       </DialogContent>
-    </Dialog> 
+    </Dialog>
   );
 };

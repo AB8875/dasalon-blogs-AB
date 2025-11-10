@@ -146,7 +146,10 @@ export function Sidebar({ isOpen, setIsOpen, onMenuClick }: SidebarProps) {
             {/* Dropdown content - this MUST exist for the popup to appear */}
             <DropdownMenuContent align="end" sideOffset={8} className="w-56">
               <DropdownMenuItem asChild>
-                <Link href="/admin/profile" className="flex items-center gap-2 cursor-pointer">
+                <Link
+                  href="/admin/profile"
+                  className="flex items-center gap-2 cursor-pointer"
+                >
                   <User className="w-4 h-4" />
                   <span>Profile</span>
                 </Link>
