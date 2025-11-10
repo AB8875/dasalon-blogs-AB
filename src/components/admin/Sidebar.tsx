@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { sidebarLinks } from "@/config/sidebarLinks";
 import { cn } from "@/lib/utils";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, LogOut, Settings, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -14,29 +14,48 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 interface User {
-  full_name: string;
-  email: string;
+  name?: string;
+  full_name?: string;
+  email?: string;
   avatar_url?: string;
 }
 
 interface SidebarProps {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
-  onMenuClick?: () => void; // <-- new prop
+  onMenuClick?: () => void;
 }
 
 export function Sidebar({ isOpen, setIsOpen, onMenuClick }: SidebarProps) {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
 
+  // track whether viewport is mobile to avoid reading window during SSR
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 1024);
+    const onResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (storedUser) setUser(JSON.parse(storedUser));
   }, []);
 
+  const handleSignOut = () => {
+    // example signout flow (adjust to your auth)
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    // navigate to login page (if you have one)
+    // router.push("/admin/login");
+    window.location.href = "/admin/login";
+  };
+
   return (
     <>
-      {isOpen && window.innerWidth < 1024 && (
+      {isOpen && isMobile && (
         <div
           className="fixed inset-0 bg-black/40 z-40 lg:hidden"
           onClick={() => setIsOpen(false)}
@@ -61,6 +80,7 @@ export function Sidebar({ isOpen, setIsOpen, onMenuClick }: SidebarProps) {
           <button
             onClick={() => setIsOpen(false)}
             className="lg:hidden p-2 rounded-md hover:bg-gray-100"
+            aria-label="Close sidebar"
           >
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
@@ -83,8 +103,8 @@ export function Sidebar({ isOpen, setIsOpen, onMenuClick }: SidebarProps) {
                     : "text-gray-700 hover:bg-gray-100"
                 )}
                 onClick={() => {
-                  if (window.innerWidth < 1024) setIsOpen(false);
-                  if (link.href === "/admin/menu") onMenuClick?.(); // <-- refresh menu
+                  if (isMobile) setIsOpen(false);
+                  if (link.href === "/admin/menu") onMenuClick?.();
                 }}
               >
                 <Icon className="w-5 h-5" />
@@ -104,7 +124,7 @@ export function Sidebar({ isOpen, setIsOpen, onMenuClick }: SidebarProps) {
                     <AvatarImage src={user.avatar_url} />
                   ) : (
                     <AvatarFallback>
-                      {(user?.full_name || "Admin")
+                      {(user?.full_name || user?.name || "Admin")
                         .split(" ")
                         .map((n) => n[0])
                         .join("")
@@ -114,7 +134,7 @@ export function Sidebar({ isOpen, setIsOpen, onMenuClick }: SidebarProps) {
                 </Avatar>
                 <div className="flex flex-col overflow-hidden">
                   <span className="text-sm font-semibold text-gray-800 truncate">
-                    {user?.full_name || "Admin User"}
+                    {user?.full_name || user?.name || "Admin User"}
                   </span>
                   <span className="text-xs text-gray-500 truncate">
                     {user?.email || "admin@dasalon.com"}
@@ -123,13 +143,32 @@ export function Sidebar({ isOpen, setIsOpen, onMenuClick }: SidebarProps) {
               </button>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent align="end" className="w-56">
+            {/* Dropdown content - this MUST exist for the popup to appear */}
+            <DropdownMenuContent align="end" sideOffset={8} className="w-56">
               <DropdownMenuItem asChild>
-                <Link href="/admin/profile">View Profile</Link>
+                <Link href="/admin/profile" className="flex items-center gap-2 cursor-pointer">
+                  <User className="w-4 h-4" />
+                  <span>Profile</span>
+                </Link>
               </DropdownMenuItem>
+
               <DropdownMenuItem asChild>
-                <Link href="/admin/settings">Settings</Link>
+                <Link
+                  href="/admin/settings"
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span>Settings</span>
+                </Link>
               </DropdownMenuItem>
+
+              {/* <DropdownMenuItem
+                onSelect={handleSignOut}
+                className="flex items-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sign out</span>
+              </DropdownMenuItem> */}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

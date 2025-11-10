@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { FileText, FolderTree, Users, Eye } from "lucide-react";
 import { DashboardCard } from "@/components/admin/DashboardCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getDb } from "@/lib/mongodb";
 import {
   LineChart,
   Line,
@@ -14,7 +13,6 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { ObjectId } from "mongodb";
 
 interface DashboardStats {
   totalPosts: number;
@@ -44,7 +42,9 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const res = await fetch("/api/dashboard-stats");
+        const apiUrl =
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+        const res = await fetch(`${apiUrl}/api/dashboard-stats`);
         const data = await res.json();
         setStats(data);
       } catch (err) {

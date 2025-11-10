@@ -49,7 +49,7 @@ export default function AdminMenuPage() {
 
   // ---------------------- FETCH TOKEN ----------------------
   useEffect(() => {
-    const t = localStorage.getItem("adminToken");
+    const t = localStorage.getItem("token");
     console.log("Token from localStorage:", t ? "exists" : "missing");
     if (t) setToken(t);
   }, []);

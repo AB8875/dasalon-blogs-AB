@@ -51,6 +51,7 @@ export default function UsersPage() {
   const [currentUserRole, setCurrentUserRole] = useState<
     "admin" | "author" | "user" | null
   >(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   const BACKEND_URL = "http://localhost:4000";
 
@@ -62,6 +63,7 @@ export default function UsersPage() {
     if (userData) {
       try {
         const user = JSON.parse(userData);
+        setCurrentUser(user); // Save the full user object, not only role
         if (user?.role) {
           setCurrentUserRole(user.role);
         } else {
@@ -69,9 +71,11 @@ export default function UsersPage() {
         }
       } catch {
         setCurrentUserRole(null);
+        setCurrentUser(null);
       }
     } else {
       setCurrentUserRole(null);
+      setCurrentUser(null);
     }
   }, []);
 
@@ -118,12 +122,20 @@ export default function UsersPage() {
     }
   }
 
-  const filteredUsers = users.filter(
-    (user) =>
-      (user.name?.toLowerCase() ?? "").includes(searchQuery.toLowerCase()) ||
-      (user.email?.toLowerCase() ?? "").includes(searchQuery.toLowerCase()) ||
-      (user.role?.toLowerCase() ?? "").includes(searchQuery.toLowerCase())
-  );
+  // Admin: full search; Author/User: only themselves
+  const filteredUsers =
+    currentUserRole === "admin"
+      ? users.filter(
+          (user) =>
+            (user.name?.toLowerCase() ?? "").includes(
+              searchQuery.toLowerCase()
+            ) ||
+            (user.email?.toLowerCase() ?? "").includes(
+              searchQuery.toLowerCase()
+            ) ||
+            (user.role?.toLowerCase() ?? "").includes(searchQuery.toLowerCase())
+        )
+      : users.filter((user) => user.email === currentUser?.email);
 
   function getRoleBadgeVariant(
     role: string

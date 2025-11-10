@@ -15,7 +15,7 @@ export default function LogOut({ className }: LogOutProps) {
 
   const handleLogout = () => {
     // ✅ Example: Clear tokens or local storage
-    localStorage.removeItem("adminToken");
+    localStorage.removeItem("token");
     localStorage.removeItem("adminUser");
 
     toast.success("You have been logged out successfully.");
