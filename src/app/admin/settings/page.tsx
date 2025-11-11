@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Save } from "lucide-react";
+import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,90 +17,95 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { SiteSettings } from "@/types/settings";
-import { apiFetch } from "@/lib/api";
+import { useSettings } from "@/hooks/useSettings";
+import ImageUpload from "@/components/admin/ImageUpload";
+import { MetaPreview } from "@/components/admin/MetaPreview";
 import LogOut from "@/components/admin/LogOut";
+
+type FormValues = {
+  siteName: string;
+  siteDescription: string;
+  logo?: string;
+  favicon?: string;
+  social: {
+    facebook?: string;
+    twitter?: string;
+    instagram?: string;
+    linkedin?: string;
+  };
+  theme: "light" | "dark" | "system";
+  postsPerPage: number;
+  updatedAt?: string;
+};
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const [settings, setSettings] = useState<SiteSettings | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const { data: settings, isLoading, save, isSaving } = useSettings();
 
-  const [formData, setFormData] = useState<SiteSettings>({
-    siteName: "",
-    siteDescription: "",
-    logo: "",
-    favicon: "",
-    social: {
-      facebook: "",
-      twitter: "",
-      instagram: "",
-      linkedin: "",
-    }, // always defined
-    theme: "light",
-    postsPerPage: 10,
-    updatedAt: "",
+  const {
+    register,
+    handleSubmit,
+    reset,
+    control,
+    setValue,
+    watch,
+    formState: { isDirty, errors },
+  } = useForm<FormValues>({
+    defaultValues: {
+      siteName: "",
+      siteDescription: "",
+      logo: "",
+      favicon: "",
+      social: {
+        facebook: "",
+        twitter: "",
+        instagram: "",
+        linkedin: "",
+      },
+      theme: "light",
+      postsPerPage: 10,
+      updatedAt: "",
+    },
+    mode: "onBlur",
   });
 
+  // when settings load, populate the form
   useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  async function fetchSettings() {
-    try {
-      const data = await apiFetch<SiteSettings>("/api/settings");
-      if (data) {
-        setSettings(data);
-        setFormData({
-          siteName: data.siteName || "",
-          siteDescription: data.siteDescription || "",
-          logo: data.logo || "",
-          favicon: data.favicon || "",
-          social: {
-            facebook: data.social?.facebook || "",
-            twitter: data.social?.twitter || "",
-            instagram: data.social?.instagram || "",
-            linkedin: data.social?.linkedin || "",
-          },
-          theme: data.theme || "light",
-          postsPerPage: data.postsPerPage || 10,
-          updatedAt: data.updatedAt || "",
-        });
-      }
-    } catch (err) {
-      console.error("Failed to fetch settings:", err);
+    if (settings) {
+      reset({
+        siteName: settings.siteName || "",
+        siteDescription: settings.siteDescription || "",
+        logo: settings.logo || "",
+        favicon: settings.favicon || "",
+        social: {
+          facebook: settings.social?.facebook || "",
+          twitter: settings.social?.twitter || "",
+          instagram: settings.social?.instagram || "",
+          linkedin: settings.social?.linkedin || "",
+        },
+        theme: (settings.theme as FormValues["theme"]) || "light",
+        postsPerPage: settings.postsPerPage ?? 10,
+        updatedAt: settings.updatedAt || "",
+      });
     }
-  }
+  }, [settings, reset]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setIsLoading(true);
+  const watchAll = watch();
 
-    const updateData = {
-      ...formData,
-      updatedAt: new Date().toISOString(),
-    };
-
+  async function onSubmit(values: FormValues) {
     try {
-      if (settings?._id) {
-        await apiFetch(`/api/settings/${settings._id}`, {
-          method: "PUT",
-          body: JSON.stringify(updateData),
-        });
-        toast({
-          title: "Settings saved",
-          description: "Settings updated successfully.",
-        });
-      } else {
-        await apiFetch("/api/settings", {
-          method: "POST",
-          body: JSON.stringify(updateData),
-        });
-        toast({
-          title: "Settings created",
-          description: "Settings created successfully.",
-        });
-      }
-      fetchSettings();
+      const payload: Partial<SiteSettings> = {
+        ...values,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await save(payload);
+      toast({
+        title: "Settings saved",
+        description: "Settings updated successfully.",
+      });
+      // reset dirty flag by resetting with latest values
+      reset(values);
     } catch (err) {
       console.error("Failed to save settings:", err);
       toast({
@@ -108,7 +114,6 @@ export default function SettingsPage() {
         variant: "destructive",
       });
     }
-    setIsLoading(false);
   }
 
   return (
@@ -124,7 +129,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Settings Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <Card className="rounded-2xl shadow-sm border-gray-200">
           <CardHeader>
             <CardTitle>General Settings</CardTitle>
@@ -134,47 +139,85 @@ export default function SettingsPage() {
               <Label htmlFor="siteName">Site Name</Label>
               <Input
                 id="siteName"
-                value={formData.siteName}
-                onChange={(e) =>
-                  setFormData({ ...formData, siteName: e.target.value })
-                }
-                required
+                {...register("siteName", { required: "Site name is required" })}
               />
+              {errors.siteName && (
+                <p className="text-red-600 text-sm mt-1">
+                  {errors.siteName.message}
+                </p>
+              )}
             </div>
             <div>
               <Label htmlFor="siteDescription">Site Description</Label>
               <Textarea
                 id="siteDescription"
-                value={formData.siteDescription}
-                onChange={(e) =>
-                  setFormData({ ...formData, siteDescription: e.target.value })
-                }
+                {...register("siteDescription", {
+                  required: "Site description is required",
+                  minLength: { value: 5, message: "Description is too short" },
+                })}
                 rows={3}
-                required
               />
+              {errors.siteDescription && (
+                <p className="text-red-600 text-sm mt-1">
+                  {errors.siteDescription.message}
+                </p>
+              )}
             </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="logo">Logo URL</Label>
+                {/* ImageUpload will call setValue when upload completes */}
+                <ImageUpload
+                  label="Logo"
+                  value={watchAll.logo}
+                  onChange={(url) =>
+                    setValue("logo", url, { shouldDirty: true })
+                  }
+                />
                 <Input
                   id="logo"
                   type="url"
-                  value={formData.logo}
-                  onChange={(e) =>
-                    setFormData({ ...formData, logo: e.target.value })
-                  }
+                  {...register("logo", {
+                    pattern: {
+                      value:
+                        /^(https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*))?$/,
+                      message: "Please enter a valid URL",
+                    },
+                  })}
                 />
+                {errors.logo && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {errors.logo.message}
+                  </p>
+                )}
               </div>
+
               <div>
                 <Label htmlFor="favicon">Favicon URL</Label>
+                <ImageUpload
+                  label="Favicon"
+                  value={watchAll.favicon}
+                  onChange={(url) =>
+                    setValue("favicon", url, { shouldDirty: true })
+                  }
+                />
                 <Input
                   id="favicon"
                   type="url"
-                  value={formData.favicon}
-                  onChange={(e) =>
-                    setFormData({ ...formData, favicon: e.target.value })
-                  }
+                  {...register("favicon", {
+                    pattern: {
+                      value:
+                        /^(https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*))?$/,
+                      message: "Please enter a valid URL",
+                    },
+                  })}
                 />
+                {errors.favicon && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {errors.favicon.message}
+                  </p>
+                )}
               </div>
             </div>
           </CardContent>
@@ -187,55 +230,19 @@ export default function SettingsPage() {
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="facebook">Facebook</Label>
-              <Input
-                id="facebook"
-                value={formData.social?.facebook}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    social: { ...formData.social, facebook: e.target.value },
-                  })
-                }
-              />
+              <Input id="facebook" {...register("social.facebook")} />
             </div>
             <div>
               <Label htmlFor="twitter">Twitter</Label>
-              <Input
-                id="twitter"
-                value={formData.social?.twitter}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    social: { ...formData.social, twitter: e.target.value },
-                  })
-                }
-              />
+              <Input id="twitter" {...register("social.twitter")} />
             </div>
             <div>
               <Label htmlFor="instagram">Instagram</Label>
-              <Input
-                id="instagram"
-                value={formData.social?.instagram}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    social: { ...formData.social, instagram: e.target.value },
-                  })
-                }
-              />
+              <Input id="instagram" {...register("social.instagram")} />
             </div>
             <div>
               <Label htmlFor="linkedin">LinkedIn</Label>
-              <Input
-                id="linkedin"
-                value={formData.social?.linkedin}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    social: { ...formData.social, linkedin: e.target.value },
-                  })
-                }
-              />
+              <Input id="linkedin" {...register("social.linkedin")} />
             </div>
           </CardContent>
         </Card>
@@ -247,24 +254,26 @@ export default function SettingsPage() {
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="theme">Theme</Label>
-              <Select
-                value={formData.theme}
-                onValueChange={(value: string) =>
-                  setFormData({
-                    ...formData,
-                    theme: value as "light" | "dark" | "system",
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select theme" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="light">Light</SelectItem>
-                  <SelectItem value="dark">Dark</SelectItem>
-                  <SelectItem value="system">System</SelectItem>
-                </SelectContent>
-              </Select>
+              <Controller
+                control={control}
+                name="theme"
+                defaultValue="light"
+                render={({ field }) => (
+                  <Select
+                    value={field.value}
+                    onValueChange={(value: string) => field.onChange(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select theme" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="light">Light</SelectItem>
+                      <SelectItem value="dark">Dark</SelectItem>
+                      <SelectItem value="system">System</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
             <div>
               <Label htmlFor="postsPerPage">Posts Per Page</Label>
@@ -273,28 +282,48 @@ export default function SettingsPage() {
                 type="number"
                 min={1}
                 max={50}
-                value={formData.postsPerPage}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    postsPerPage: parseInt(e.target.value),
-                  })
-                }
+                {...register("postsPerPage", {
+                  valueAsNumber: true,
+                  min: { value: 1, message: "Minimum is 1" },
+                  max: { value: 50, message: "Maximum is 50" },
+                })}
               />
+              {errors.postsPerPage && (
+                <p className="text-red-600 text-sm mt-1">
+                  {errors.postsPerPage.message as unknown as string}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
 
+        <Card className="rounded-2xl shadow-sm border-gray-200">
+          <CardHeader>
+            <CardTitle>Live Preview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <MetaPreview
+              title={watchAll.siteName}
+              description={watchAll.siteDescription}
+              logo={watchAll.logo}
+            />
+          </CardContent>
+        </Card>
+
         <div className="flex justify-end">
-          <Button type="submit" className="gap-2" disabled={isLoading}>
+          <Button
+            type="submit"
+            className="gap-2"
+            disabled={isSaving || !isDirty}
+          >
             <Save className="w-4 h-4" />
-            {isLoading ? "Saving..." : "Save Settings"}
+            {isSaving ? "Saving..." : isDirty ? "Save Settings" : "No changes"}
           </Button>
         </div>
       </form>
 
       {/* Logout Section at Bottom */}
-      <div className="mt-10 border-t pt-6">
+      <div className="mt-10 border-t pt-6 relative z-10">
         <p className="text-sm text-gray-500 mb-2">
           Want to sign out of your admin account?
         </p>

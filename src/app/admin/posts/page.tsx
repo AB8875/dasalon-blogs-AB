@@ -1,8 +1,10 @@
 "use client";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
 import { useEffect, useState, useRef } from "react";
 import dynamic from "next/dynamic";
 import { format } from "date-fns";
-import { Plus, Grid, List, ImagePlus } from "lucide-react";
+import { Plus, Grid, List, ImagePlus, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,7 +41,8 @@ interface BlogPost {
   thumbnail: string;
   menu: string;
   submenu: string;
-  author: string;
+  author?: string; // keep optional for backward compatibility
+  authors?: string[];
   shareUrl: string;
   featured: boolean;
   status: string;
@@ -69,15 +72,30 @@ export default function AdminPostsPage() {
   const [isGridView, setIsGridView] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [previewPost, setPreviewPost] = useState<BlogPost | null>(null);
+  const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState<string>("");
   const [menus, setMenus] = useState<MenuType[]>([]);
 
+  // load posts
   useEffect(() => {
     fetch(`${apiUrl}/api/blogs`)
       .then((r) => r.json())
-      .then((data) => setPosts(Array.isArray(data) ? data : []));
+      .then((data) => {
+        if (!Array.isArray(data)) return setPosts([]);
+        const normalized = data.map((post: any) => ({
+          ...post,
+          // normalize author for rendering
+          author:
+            post.author ||
+            (Array.isArray(post.authors) ? post.authors.join(", ") : ""),
+        }));
+        setPosts(normalized);
+      })
+      .catch(() => setPosts([]));
   }, []);
 
+  // load menus (admin)
   useEffect(() => {
     const token =
       typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -102,11 +120,46 @@ export default function AdminPostsPage() {
       )
       .catch(() => setMenus([]));
   }, []);
+  // Convert Markdown -> HTML (and sanitize) whenever previewPost changes
+  useEffect(() => {
+    let mounted = true;
+    // reset quickly if no preview
+    if (!previewPost) {
+      setPreviewHtml("");
+      return;
+    }
 
-  const addNewPost = (post: BlogPost) => setPosts([post, ...posts]);
+    // only handle string content (markdown)
+    if (typeof previewPost.content === "string") {
+      (async () => {
+        try {
+          // marked.parse may return string or Promise<string>, so normalize:
+          const rawHtml = await Promise.resolve(
+            marked.parse(previewPost.content || "")
+          );
+          const cleanHtml = DOMPurify.sanitize(rawHtml);
+          if (mounted) setPreviewHtml(cleanHtml);
+        } catch (err) {
+          console.error("Failed to parse/sanitize markdown preview:", err);
+          if (mounted) setPreviewHtml("");
+        }
+      })();
+    } else {
+      // non-string content (editor delta etc.) — clear html and let editor render fallback
+      setPreviewHtml("");
+    }
+
+    return () => {
+      mounted = false;
+    };
+  }, [previewPost]);
+  const addNewPost = (post: BlogPost) => setPosts((prev) => [post, ...prev]);
   const handlePostClick = (post: BlogPost) => {
     setPreviewPost(post);
     setIsPreviewOpen(true);
+  };
+  const handleUpdatePost = (updated: BlogPost) => {
+    setPosts((prev) => prev.map((p) => (p._id === updated._id ? updated : p)));
   };
 
   return (
@@ -116,7 +169,10 @@ export default function AdminPostsPage() {
         <h1 className="text-2xl font-bold">Your Posts</h1>
         <div className="flex gap-2">
           <Button
-            onClick={() => setIsCreateOpen(true)}
+            onClick={() => {
+              setEditingPost(null);
+              setIsCreateOpen(true);
+            }}
             className="flex items-center gap-1"
           >
             <Plus /> Create Post
@@ -126,21 +182,49 @@ export default function AdminPostsPage() {
           </Button>
         </div>
       </div>
+
       {/* Posts Display */}
       {posts.length === 0 ? (
         <p className="text-gray-500">No posts created yet.</p>
       ) : isGridView ? (
-        <PostsGrid posts={posts} onPostClick={handlePostClick} />
+        <PostsGrid
+          posts={posts}
+          onPostClick={handlePostClick}
+          onEditPost={(p) => {
+            setEditingPost(p);
+            setIsCreateOpen(true);
+          }}
+        />
       ) : (
-        <PostsList posts={posts} onPostClick={handlePostClick} />
+        <PostsList
+          posts={posts}
+          onPostClick={handlePostClick}
+          onEditPost={(p) => {
+            setEditingPost(p);
+            setIsCreateOpen(true);
+          }}
+        />
       )}
-      {/* Create Post Modal */}
+
+      {/* Create / Edit Post Modal */}
       <CreatePostModal
         open={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
+        onClose={() => {
+          setIsCreateOpen(false);
+          setEditingPost(null);
+        }}
         menus={menus}
-        addPost={addNewPost}
+        addPost={(p) => {
+          addNewPost(p);
+          setEditingPost(null);
+        }}
+        editingPost={editingPost}
+        onUpdate={(p) => {
+          handleUpdatePost(p);
+          setEditingPost(null);
+        }}
       />
+
       {/* Preview Dialog */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-w-2xl">
@@ -152,30 +236,49 @@ export default function AdminPostsPage() {
               <h2 className="text-xl font-bold">{previewPost.title}</h2>
               <p className="text-sm text-gray-500">
                 {previewPost.menu}
-                {previewPost.submenu ? ` > ${previewPost.submenu}` : ""} |
+                {previewPost.submenu ? ` > ${previewPost.submenu}` : ""}{" "}
                 {previewPost.createdAt &&
-                  ` ${format(new Date(previewPost.createdAt), "PPP")}`}{" "}
+                  ` | ${format(new Date(previewPost.createdAt), "PPP")}`}{" "}
                 | {previewPost.status}
               </p>
               <p className="text-gray-700">
                 <strong>Author:</strong> {previewPost.author}
               </p>
               <div className="flex flex-wrap gap-2">
-                {previewPost.tags.map((tag) => (
-                  <Badge key={tag} variant="secondary">
-                    {tag}
-                  </Badge>
-                ))}
+                {Array.isArray(previewPost.tags) &&
+                  previewPost.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary">
+                      {tag}
+                    </Badge>
+                  ))}
                 {previewPost.featured && (
                   <Badge variant="default">Featured</Badge>
                 )}
               </div>
+
+              {/* Content render: RichTextEditor attempt, fallback to HTML string */}
               <div className="border rounded p-3 mt-2 min-h-[200px]">
-                <RichTextEditor
-                  content={previewPost.content}
-                  editable={false}
-                />
+                {typeof previewPost.content === "string" ? (
+                  previewHtml ? (
+                    <div
+                      className="prose max-w-none"
+                      dangerouslySetInnerHTML={{ __html: previewHtml }}
+                    />
+                  ) : (
+                    <div className="text-sm text-muted-foreground">
+                      Rendering preview…
+                    </div>
+                  )
+                ) : (
+                  // editor delta JSON fallback
+                  // @ts-ignore
+                  <RichTextEditor
+                    content={previewPost.content}
+                    editable={false}
+                  />
+                )}
               </div>
+
               {previewPost.images?.length > 0 && (
                 <div className="grid grid-cols-3 gap-2 mt-2">
                   {previewPost.images.map((img, idx) =>
@@ -219,13 +322,15 @@ export default function AdminPostsPage() {
   );
 }
 
-// Grid and List view (no change except use <CldImage /> for image optimization/rendering)
+// Grid and List view (pass edit handler)
 function PostsGrid({
   posts,
   onPostClick,
+  onEditPost,
 }: {
   posts: BlogPost[];
   onPostClick: (post: BlogPost) => void;
+  onEditPost: (post: BlogPost) => void;
 }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -234,6 +339,7 @@ function PostsGrid({
           key={post._id ?? i}
           post={post}
           onClick={() => onPostClick(post)}
+          onEdit={() => onEditPost(post)}
         />
       ))}
     </div>
@@ -242,9 +348,11 @@ function PostsGrid({
 function PostsList({
   posts,
   onPostClick,
+  onEditPost,
 }: {
   posts: BlogPost[];
   onPostClick: (post: BlogPost) => void;
+  onEditPost: (post: BlogPost) => void;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -253,17 +361,41 @@ function PostsList({
           key={post._id ?? i}
           post={post}
           onClick={() => onPostClick(post)}
+          onEdit={() => onEditPost(post)}
         />
       ))}
     </div>
   );
 }
 
-// Card for post display
-function PostCard({ post, onClick }: { post: BlogPost; onClick: () => void }) {
+// Card for post display with edit button
+function PostCard({
+  post,
+  onClick,
+  onEdit,
+}: {
+  post: BlogPost;
+  onClick: () => void;
+  onEdit?: () => void;
+}) {
   return (
-    <Card className="cursor-pointer hover:shadow-md" onClick={onClick}>
-      <CardContent className="space-y-1">
+    <Card className="cursor-pointer hover:shadow-md relative">
+      {/* Edit button top-right */}
+      <div className="absolute top-2 right-2 z-10">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation(); // prevent opening preview
+            onEdit?.();
+          }}
+          title="Edit post"
+        >
+          <Edit3 size={16} />
+        </Button>
+      </div>
+
+      <CardContent className="space-y-1" onClick={onClick}>
         <p className="font-semibold">{post.title}</p>
         <p className="text-sm text-gray-500">
           {post.menu}
@@ -298,19 +430,23 @@ function PostCard({ post, onClick }: { post: BlogPost; onClick: () => void }) {
   );
 }
 
-// Modal: Cloudinary Direct Upload logic
+// Modal: Cloudinary Direct Upload logic (create + edit combined)
 
 interface CreatePostModalProps {
   open: boolean;
   onClose: () => void;
   menus: MenuType[];
   addPost: (post: BlogPost) => void;
+  editingPost?: BlogPost | null;
+  onUpdate?: (post: BlogPost) => void;
 }
 const CreatePostModal = ({
   open,
   onClose,
   menus,
   addPost,
+  editingPost = null,
+  onUpdate,
 }: CreatePostModalProps) => {
   // Form States
   const [title, setTitle] = useState("");
@@ -325,19 +461,44 @@ const CreatePostModal = ({
   const [status, setStatus] = useState("published");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
-  const [content, setContent] = useState("");
+  const [content, setContent] = useState<any>(""); // allow string or editor value
   const [images, setImages] = useState<string[]>([]);
   const [isShareUrlManuallyEdited, setIsShareUrlManuallyEdited] =
     useState(false);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const postImagesInputRef = useRef<HTMLInputElement>(null);
 
+  // Keep slug/ shareUrl in sync with title (unless manually edited)
   useEffect(() => {
     setSlug(slugify(title));
     if (!isShareUrlManuallyEdited) {
       setShareUrl(slugify(title));
     }
   }, [title, isShareUrlManuallyEdited]);
+
+  // Prefill when editingPost changes
+  useEffect(() => {
+    if (editingPost) {
+      setTitle(editingPost.title || "");
+      setSlug(editingPost.slug || "");
+      setDescription(editingPost.description || "");
+      setThumbnail(editingPost.thumbnail || "");
+      setMenu(editingPost.menu || "");
+      setSubmenu(editingPost.submenu || "");
+      setAuthor(editingPost.author || "");
+      setShareUrl(editingPost.shareUrl || "");
+      setFeatured(!!editingPost.featured);
+      setStatus(editingPost.status || "published");
+      setTags(editingPost.tags || []);
+      setContent(editingPost.content || "");
+      setImages(editingPost.images || []);
+      setIsShareUrlManuallyEdited(true);
+    } else {
+      // reset only when switching to create mode
+      resetForm();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingPost]);
 
   // Cloudinary config
   const CLOUD_NAME = "ddzhzrlcb"; // Your cloud name
@@ -388,15 +549,20 @@ const CreatePostModal = ({
   };
 
   const handleRemoveTag = (tag: string) =>
-    setTags(tags.filter((t) => t !== tag));
+    setTags((prev) => prev.filter((t) => t !== tag));
 
   // Cloudinary image upload for post images (direct urls)
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target?.files) return;
     const files = Array.from(e.target.files);
     for (const file of files) {
-      const url = await uploadToCloudinary(file);
-      setImages((prev) => [...prev, url]);
+      try {
+        const url = await uploadToCloudinary(file);
+        setImages((prev) => [...prev, url]);
+      } catch (err) {
+        console.error("Image upload failed", err);
+        alert("Image upload failed");
+      }
     }
   };
 
@@ -406,12 +572,17 @@ const CreatePostModal = ({
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = await uploadToCloudinary(file);
-    setThumbnail(url);
+    try {
+      const url = await uploadToCloudinary(file);
+      setThumbnail(url);
+    } catch (err) {
+      console.error("Thumbnail upload failed", err);
+      alert("Thumbnail upload failed");
+    }
   };
 
   const handleRemoveImage = (index: number) =>
-    setImages(images.filter((_, i) => i !== index));
+    setImages((prev) => prev.filter((_, i) => i !== index));
 
   const resetForm = () => {
     setTitle("");
@@ -431,8 +602,12 @@ const CreatePostModal = ({
     setIsShareUrlManuallyEdited(false);
   };
 
+  // Create or update post (use token if available)
   const handlePostBlog = async () => {
-    const newPost: BlogPost = {
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+    const payload: Partial<BlogPost> = {
       title,
       slug,
       description,
@@ -447,23 +622,51 @@ const CreatePostModal = ({
       content,
       images,
     };
+
     try {
-      const res = await fetch(`${apiUrl}/api/blogs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...newPost,
-          authors: [author],
-        }),
-      });
-      const post = await res.json();
-      addPost(post);
-      resetForm();
-      onClose();
+      if (editingPost && editingPost._id) {
+        // Update
+        const res = await fetch(`${apiUrl}/api/blogs/${editingPost._id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ ...payload, authors: [author] }),
+        });
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(err || "Failed to update post");
+        }
+        const updatedPost = await res.json();
+        onUpdate?.(updatedPost);
+        resetForm();
+        onClose();
+      } else {
+        // Create
+        const res = await fetch(`${apiUrl}/api/blogs`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ ...payload, authors: [author] }),
+        });
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(err || "Failed to create post");
+        }
+        const post = await res.json();
+        addPost(post);
+        resetForm();
+        onClose();
+      }
     } catch (err) {
-      alert("Failed to create post");
+      console.error(err);
+      alert("Failed to create/update post");
     }
   };
+
   const selectedMenu = menus.find((m) => m.name === menu);
   const thumbnailId = getCloudinaryPublicId(thumbnail);
 
@@ -472,7 +675,7 @@ const CreatePostModal = ({
       <DialogContent className="w-full max-w-full sm:max-w-xl md:max-w-3xl lg:max-w-4xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg sm:text-xl">
-            Create New Post
+            {editingPost ? "Edit Post" : "Create New Post"}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-6">
@@ -491,6 +694,7 @@ const CreatePostModal = ({
               <Input value={slug} readOnly />
             </div>
           </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label>Description</Label>
@@ -630,6 +834,7 @@ const CreatePostModal = ({
               </div>
             )}
           </div>
+
           {/* Author & Share URL */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -652,9 +857,10 @@ const CreatePostModal = ({
               />
             </div>
           </div>
+
           {/* Featured & Status */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
+            <div className="flex items-center gap-3">
               <Label>Featured</Label>
               <Switch
                 checked={featured}
@@ -675,6 +881,7 @@ const CreatePostModal = ({
               </Select>
             </div>
           </div>
+
           {/* Tags */}
           <div>
             <Label>Tags</Label>
@@ -688,7 +895,7 @@ const CreatePostModal = ({
                   {tag}
                   <button
                     onClick={() => handleRemoveTag(tag)}
-                    className="text-xs hover:text-red-500"
+                    className="text-xs hover:text-red-500 ml-1"
                   >
                     ✕
                   </button>
@@ -703,23 +910,48 @@ const CreatePostModal = ({
               />
             </div>
           </div>
+
           {/* Content */}
           <div>
             <Label>Content</Label>
             <div className="mt-2 border rounded-md min-h-[150px] sm:min-h-[200px]">
+              {/* @ts-ignore */}
               <RichTextEditor content={content} onChange={setContent} />
             </div>
           </div>
+
           {/* Buttons */}
           <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={resetForm}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (editingPost) {
+                  // revert to original editingPost values if present
+                  setTitle(editingPost.title || "");
+                  setSlug(editingPost.slug || "");
+                  setDescription(editingPost.description || "");
+                  setThumbnail(editingPost.thumbnail || "");
+                  setMenu(editingPost.menu || "");
+                  setSubmenu(editingPost.submenu || "");
+                  setAuthor(editingPost.author || "");
+                  setShareUrl(editingPost.shareUrl || "");
+                  setFeatured(!!editingPost.featured);
+                  setStatus(editingPost.status || "published");
+                  setTags(editingPost.tags || []);
+                  setContent(editingPost.content || "");
+                  setImages(editingPost.images || []);
+                } else {
+                  resetForm();
+                }
+              }}
+            >
               Reset
             </Button>
             <Button
               className="bg-purple-600 text-white hover:bg-purple-700"
               onClick={handlePostBlog}
             >
-              Post Blog
+              {editingPost ? "Save Changes" : "Post Blog"}
             </Button>
           </div>
         </div>
