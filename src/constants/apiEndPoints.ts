@@ -1,3 +1,4 @@
+// src/constants/apiEndPoints.ts
 export const MENU_ENDPOINT = {
   menus: `/api/menu/menus`,
   submenus: `/api/menu/submenus`,
@@ -5,5 +6,5 @@ export const MENU_ENDPOINT = {
   adminById: `/api/menu/admin`,
 };
 export const BLOG_ENDPOINT = {
-  blogs: `/blogs`,
+  blogs: `/api/blogs`,
 };

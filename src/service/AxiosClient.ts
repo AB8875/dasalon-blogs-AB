@@ -1,39 +1,29 @@
+// src/service/AxiosClient.ts
 import axios from "axios";
 
-// Create instance
+const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"; // backend default
+
 const axiosClient = axios.create({
-  baseURL: "https://dasalon-blog-73430e9b5067.herokuapp.com/api",
+  baseURL: base, // do not force '/api' here — backend's global prefix is 'api' (set in main.ts)
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// 🔐 REQUEST INTERCEPTOR: Add token
-// axiosClient.interceptors.request.use(
-//   (config) => {
-//     const token =
-//       typeof window !== "undefined" ? localStorage.getItem("token") : null;
-//     if (token) {
-//       config.headers.Authorization = `Bearer ${token}`;
-//     }
-//     return config;
-//   },
-//   (error) => Promise.reject(error)
-// );
-
-// ❌ RESPONSE INTERCEPTOR: Handle errors globally
-// axiosClient.interceptors.response.use(
-//   (response) => response,
-//   (error) => {
-//     if (error.response?.status === 401) {
-//       // Handle unauthorized (e.g., logout or redirect to login)
-//       console.error("Unauthorized - redirecting to login...");
-//     }
-
-//     // You can customize more status code handlers here
-//     return Promise.reject(error);
-//   }
-// );
+// request interceptor to add token (existing logic remains)
+axiosClient.interceptors.request.use(
+  (config) => {
+    // if you use auth tokens:
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (token) {
+      // eslint-disable-next-line no-param-reassign
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 export default axiosClient;

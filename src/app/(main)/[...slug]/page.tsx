@@ -1,17 +1,27 @@
-// Catch-all route for menu/submenu pages: /[...slug]
+// src/app/(main)/[...slug]/page.tsx
 import { notFound } from "next/navigation";
 import { getMenusWithSubmenus } from "@/service/Menu";
 import { ISubmenu } from "@/types/transformerTypes";
 
 interface MenuPageProps {
-  params: Promise<{ slug: string[] }>;
+  params: { slug: string[] }; // keep simple typed params
 }
 
+interface Menu {
+  _id: string;
+  name: string;
+  slug?: string;
+  submenus?: ISubmenu[];
+}
+
+/**
+ * Catch-all route for menu/submenu pages: /[...slug]
+ */
 export default async function MenuPage({ params }: MenuPageProps) {
-  const { slug } = await params;
+  const { slug } = params;
 
   // Expected URL structure: /[menu-slug]/[menu-id]/[submenu-id]
-  if (slug.length !== 3) {
+  if (!Array.isArray(slug) || slug.length !== 3) {
     return (
       <div className="container mx-auto px-4 py-10">
         <h1 className="text-3xl font-semibold mb-6">Invalid URL Structure</h1>
@@ -19,8 +29,10 @@ export default async function MenuPage({ params }: MenuPageProps) {
           Expected URL format: /[menu-slug]/[menu-id]/[submenu-id]
         </p>
         <div className="prose max-w-none">
-          <p>Received: /{slug.join("/")}</p>
-          <p>Number of segments: {slug.length}</p>
+          <p>
+            Received: /{Array.isArray(slug) ? slug.join("/") : String(slug)}
+          </p>
+          <p>Number of segments: {Array.isArray(slug) ? slug.length : 0}</p>
         </div>
       </div>
     );
@@ -30,7 +42,7 @@ export default async function MenuPage({ params }: MenuPageProps) {
 
   try {
     // Fetch all menus with submenus
-    const menusData = await getMenusWithSubmenus();
+    const menusData = (await getMenusWithSubmenus()) as Menu[] | null;
 
     if (!menusData || !Array.isArray(menusData)) {
       return (
@@ -51,8 +63,8 @@ export default async function MenuPage({ params }: MenuPageProps) {
       );
     }
 
-    // Find the menu by ID
-    const menu = menusData.find((m) => m._id === menuId);
+    // Find the menu by ID (explicitly type the callback param)
+    const menu = menusData.find((m: Menu) => String(m._id) === String(menuId));
 
     if (!menu) {
       return (
@@ -62,15 +74,20 @@ export default async function MenuPage({ params }: MenuPageProps) {
             The menu with ID "{menuId}" could not be found.
           </p>
           <div className="prose max-w-none">
-            <p>Available menus: {menusData.map((m) => m.name).join(", ")}</p>
+            <p>
+              Available menus:{" "}
+              {menusData.length
+                ? menusData.map((m) => m.name).join(", ")
+                : "None"}
+            </p>
           </div>
         </div>
       );
     }
 
-    // Find the specific submenu
+    // Find the specific submenu (typed callback)
     const submenu = menu.submenus?.find(
-      (sub: ISubmenu) => sub._id === submenuId
+      (sub: ISubmenu) => String(sub._id) === String(submenuId)
     );
 
     if (!submenu) {
@@ -84,7 +101,9 @@ export default async function MenuPage({ params }: MenuPageProps) {
           <div className="prose max-w-none">
             <p>
               Available submenus:{" "}
-              {menu.submenus?.map((s) => s.name).join(", ") || "None"}
+              {menu.submenus && menu.submenus.length
+                ? menu.submenus.map((s: ISubmenu) => s.name).join(", ")
+                : "None"}
             </p>
           </div>
         </div>
@@ -113,7 +132,7 @@ export default async function MenuPage({ params }: MenuPageProps) {
     );
   } catch (err) {
     console.error("Error fetching menu data:", err);
-    // Instead of calling notFound() here, return a fallback page
+    // Return a graceful fallback instead of throwing
     return (
       <div className="container mx-auto px-4 py-10">
         <h1 className="text-3xl font-semibold mb-6">Menu Not Found</h1>

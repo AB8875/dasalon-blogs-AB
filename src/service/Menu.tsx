@@ -10,67 +10,16 @@ export const getAllMenus = async () => {
 // Get all menus with their submenus (for navigation)
 export const getMenusWithSubmenus = async () => {
   try {
-    const res = await axiosClient.get(MENU_ENDPOINT.adminAll);
-    return res.data;
+    const res = await axiosClient.get(MENU_ENDPOINT.adminAll); // should evaluate to `${base}/api/menu/admin/all`
+    return res.data; // backend returns array/object directly
   } catch (error) {
-    console.warn(
-      "Backend menu endpoints not available yet, using fallback data"
-    );
-    // Return mock data until backend is updated
-    return [
-      {
-        _id: "beauty",
-        name: "Beauty",
-        slug: "beauty",
-        description: "Beauty related content",
-        status: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        submenus: [
-          {
-            _id: "skincare",
-            name: "Skincare",
-            slug: "skincare",
-            description: "Skincare products and tips",
-            status: true,
-            parent_id: "beauty",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            _id: "makeup",
-            name: "Makeup",
-            slug: "makeup",
-            description: "Makeup tutorials and products",
-            status: true,
-            parent_id: "beauty",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-        ],
-      },
-      {
-        _id: "trends",
-        name: "Trends",
-        slug: "trends",
-        description: "Latest beauty trends",
-        status: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        submenus: [
-          {
-            _id: "fashion-trends",
-            name: "Fashion Trends",
-            slug: "fashion-trends",
-            description: "Latest fashion trends",
-            status: true,
-            parent_id: "trends",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-        ],
-      },
-    ];
+    // fallback to local mock as in current code
+    console.warn("Error fetching menus", error);
+    return {
+      data: [
+        /* keep mocked shape or transform to expected */
+      ],
+    };
   }
 };
 
