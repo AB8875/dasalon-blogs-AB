@@ -1,5 +1,7 @@
 "use client";
 import { marked } from "marked";
+import type React from "react";
+
 import DOMPurify from "dompurify";
 import { useEffect, useState, useRef } from "react";
 import dynamic from "next/dynamic";
@@ -63,7 +65,7 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 function getCloudinaryPublicId(url: string) {
   if (!url) return "";
   // removes everything up to and including '/upload/v1234567890/'
-  const match = url.match(/\/upload\/(?:v\d+\/)?([^\.]+)/);
+  const match = url.match(/\/upload\/(?:v\d+\/)?([^.]+)/);
   return match && match[1] ? match[1] : "";
 }
 
@@ -231,91 +233,102 @@ export default function AdminPostsPage() {
           <DialogHeader className="px-6 py-4 border-b shrink-0">
             <DialogTitle>Post Preview</DialogTitle>
           </DialogHeader>
-          {previewPost && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold">{previewPost.title}</h2>
-              <p className="text-sm text-gray-500">
-                {previewPost.menu}
-                {previewPost.submenu ? ` > ${previewPost.submenu}` : ""}{" "}
-                {previewPost.createdAt &&
-                  ` | ${format(new Date(previewPost.createdAt), "PPP")}`}{" "}
-                | {previewPost.status}
-              </p>
-              <p className="text-gray-700">
-                <strong>Author:</strong> {previewPost.author}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {Array.isArray(previewPost.tags) &&
-                  previewPost.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary">
-                      {tag}
-                    </Badge>
-                  ))}
-                {previewPost.featured && (
-                  <Badge variant="default">Featured</Badge>
-                )}
-              </div>
-
-              {/* Content render: RichTextEditor attempt, fallback to HTML string */}
-              <div className="border rounded p-3 mt-2 min-h-[200px]">
-                {typeof previewPost.content === "string" ? (
-                  previewHtml ? (
-                    <div
-                      className="prose max-w-none"
-                      dangerouslySetInnerHTML={{ __html: previewHtml }}
-                    />
-                  ) : (
-                    <div className="text-sm text-muted-foreground">
-                      Rendering preview…
-                    </div>
-                  )
-                ) : (
-                  // editor delta JSON fallback
-                  // @ts-ignore
-                  <RichTextEditor
-                    content={previewPost.content}
-                    editable={false}
-                  />
-                )}
-              </div>
-
-              {previewPost.images?.length > 0 && (
-                <div className="grid grid-cols-3 gap-2 mt-2">
-                  {previewPost.images.map((img, idx) =>
-                    img ? (
-                      <CldImage
-                        key={idx}
-                        src={getCloudinaryPublicId(img)}
-                        width="300"
-                        height="300"
-                        crop="thumb"
-                        alt={`img-${idx}`}
-                      />
-                    ) : null
+          <div className="overflow-y-auto flex-1 px-6 py-4">
+            {previewPost && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold">{previewPost.title}</h2>
+                <p className="text-sm text-gray-500">
+                  {previewPost.menu}
+                  {previewPost.submenu ? ` > ${previewPost.submenu}` : ""}{" "}
+                  {previewPost.createdAt &&
+                    ` | ${format(new Date(previewPost.createdAt), "PPP")}`}{" "}
+                  | {previewPost.status}
+                </p>
+                <p className="text-gray-700">
+                  <strong>Author:</strong> {previewPost.author}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {Array.isArray(previewPost.tags) &&
+                    previewPost.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary">
+                        {tag}
+                      </Badge>
+                    ))}
+                  {previewPost.featured && (
+                    <Badge variant="default">Featured</Badge>
                   )}
                 </div>
-              )}
-              {previewPost.thumbnail && (
-                <CldImage
-                  src={getCloudinaryPublicId(previewPost.thumbnail)}
-                  width="500"
-                  height="300"
-                  crop="auto"
-                  alt="Thumbnail"
-                  className="w-full h-40 object-cover rounded-md border mt-3"
-                />
-              )}
-              <div className="flex justify-end mt-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsPreviewOpen(false)}
-                >
-                  Close
-                </Button>
+
+                {/* Content render: RichTextEditor attempt, fallback to HTML string */}
+                <div className="border rounded p-3 mt-2 min-h-[200px] bg-white">
+                  {typeof previewPost.content === "string" ? (
+                    previewHtml ? (
+                      <div
+                        className="prose max-w-none dark:prose-invert"
+                        dangerouslySetInnerHTML={{ __html: previewHtml }}
+                      />
+                    ) : (
+                      <div className="text-sm text-muted-foreground animate-pulse">
+                        Rendering preview…
+                      </div>
+                    )
+                  ) : (
+                    // editor delta JSON fallback
+                    // @ts-ignore
+                    <RichTextEditor
+                      content={previewPost.content}
+                      editable={false}
+                    />
+                  )}
+                </div>
+
+                {previewPost.images?.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold mb-2">Images</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {previewPost.images.map((img, idx) =>
+                        img ? (
+                          <CldImage
+                            key={idx}
+                            src={getCloudinaryPublicId(img)}
+                            width="300"
+                            height="300"
+                            crop="thumb"
+                            alt={`img-${idx}`}
+                            className="rounded-md object-cover"
+                          />
+                        ) : null
+                      )}
+                    </div>
+                  </div>
+                )}
+                {previewPost.thumbnail && (
+                  <div>
+                    <h3 className="font-semibold mb-2">Thumbnail</h3>
+                    <CldImage
+                      src={getCloudinaryPublicId(previewPost.thumbnail)}
+                      width="500"
+                      height="300"
+                      crop="auto"
+                      alt="Thumbnail"
+                      className="w-full h-40 object-cover rounded-md border"
+                    />
+                  </div>
+                )}
               </div>
+            )}
+          </div>
+          <div className="px-6 py-4 border-t bg-gray-50 dark:bg-gray-900 shrink-0">
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsPreviewOpen(false)}
+              >
+                Close
+              </Button>
             </div>
-          )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -1,62 +1,65 @@
-"use client"
-import { useEffect, useState } from "react"
-import axios from "axios"
-import Link from "next/link"
-import { ArrowLeft, ChevronRight } from "lucide-react"
-import { useParams, useRouter } from "next/navigation"
-import { toast } from "sonner"
+"use client";
+import { useEffect, useState } from "react";
+import axios from "axios";
+import Link from "next/link";
+import { ArrowLeft, ChevronRight } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 type MenuType = {
-  _id: string
-  name: string
-  slug: string
-  description: string
+  _id: string;
+  name: string;
+  slug: string;
+  description: string;
   submenus?: Array<{
-    _id: string
-    name: string
-    slug: string
-    description?: string
-  }>
-}
+    _id: string;
+    name: string;
+    slug: string;
+    description?: string;
+  }>;
+};
 
 export default function MenuDetailPage() {
-  const params = useParams()
-  const router = useRouter()
-  const [menu, setMenu] = useState<MenuType | null>(null)
-  const [loading, setLoading] = useState(true)
+  const params = useParams();
+  const router = useRouter();
+  const [menu, setMenu] = useState<MenuType | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const menuId = params.menuId as string
-  const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"
+  const menuId = params.menuId as string;
+  const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
   useEffect(() => {
-    if (!menuId) return
+    if (!menuId) return;
 
     const fetchMenu = async () => {
       try {
-        setLoading(true)
-        const { data } = await axios.get(`${base}/api/menu/${menuId}`)
-        setMenu(data)
+        setLoading(true);
+        const { data } = await axios.get(`${base}/api/menu/${menuId}`);
+        setMenu(data);
       } catch (error) {
-        console.error("Error fetching menu:", error)
-        toast.error("Failed to load menu")
-        router.push("/menu")
+        console.error("Error fetching menu:", error);
+        toast.error("Failed to load menu");
+        router.push("/menu");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    fetchMenu()
-  }, [menuId])
+    };
+    fetchMenu();
+  }, [menuId]);
 
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-16">
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 bg-gray-200 rounded-lg animate-pulse" />
+            <div
+              key={i}
+              className="h-20 bg-gray-200 rounded-lg animate-pulse"
+            />
           ))}
         </div>
       </div>
-    )
+    );
   }
 
   if (!menu) {
@@ -64,13 +67,16 @@ export default function MenuDetailPage() {
       <div className="container mx-auto px-4 py-16 text-center">
         <p className="text-gray-500 text-lg">Menu not found</p>
       </div>
-    )
+    );
   }
 
   return (
     <div className="container mx-auto px-4 py-16 mt-16">
       {/* Back Button */}
-      <Link href="/menu" className="inline-flex items-center gap-2 text-primary hover:underline mb-8">
+      <Link
+        href="/menu"
+        className="inline-flex items-center gap-2 text-primary hover:underline mb-8"
+      >
         <ArrowLeft className="w-4 h-4" />
         Back to Menus
       </Link>
@@ -102,9 +108,11 @@ export default function MenuDetailPage() {
         </div>
       ) : (
         <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No submenus available in this menu.</p>
+          <p className="text-gray-500 text-lg">
+            No submenus available in this menu.
+          </p>
         </div>
       )}
     </div>
-  )
+  );
 }
