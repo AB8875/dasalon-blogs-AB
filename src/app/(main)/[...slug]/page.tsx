@@ -18,7 +18,8 @@ interface Menu {
  * Catch-all route for menu/submenu pages: /[...slug]
  */
 export default async function MenuPage({ params }: MenuPageProps) {
-  const { slug } = params;
+  const resolved = await params;
+  const { slug } = resolved;
 
   // Expected URL structure: /[menu-slug]/[menu-id]/[submenu-id]
   if (!Array.isArray(slug) || slug.length !== 3) {

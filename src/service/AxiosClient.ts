@@ -1,29 +1,44 @@
 // src/service/AxiosClient.ts
-import axios from "axios";
+import axios, { AxiosHeaders, InternalAxiosRequestConfig } from "axios";
 
-const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"; // backend default
+const envBase =
+  process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL;
+
+const base = envBase || "http://localhost:4000";
 
 const axiosClient = axios.create({
-  baseURL: base, // do not force '/api' here — backend's global prefix is 'api' (set in main.ts)
-  timeout: 10000,
+  baseURL: base,
+  timeout: 15000,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// request interceptor to add token (existing logic remains)
-axiosClient.interceptors.request.use(
-  (config) => {
-    // if you use auth tokens:
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    if (token) {
-      // eslint-disable-next-line no-param-reassign
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// Attach token only on client side
+if (typeof window !== "undefined") {
+  axiosClient.interceptors.request.use(
+    (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
+      const token = localStorage.getItem("token");
+
+      // Normalize headers to AxiosHeaders type
+      let headers: AxiosHeaders;
+
+      if (config.headers instanceof AxiosHeaders) {
+        headers = config.headers;
+      } else {
+        headers = new AxiosHeaders(config.headers || {});
+      }
+
+      if (token) {
+        headers.set("Authorization", `Bearer ${token}`);
+      }
+
+      config.headers = headers;
+
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
+}
 
 export default axiosClient;

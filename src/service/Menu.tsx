@@ -8,18 +8,34 @@ export const getAllMenus = async () => {
 };
 
 // Get all menus with their submenus (for navigation)
-export const getMenusWithSubmenus = async () => {
+export const getMenusWithSubmenus = async (): Promise<any[]> => {
   try {
-    const res = await axiosClient.get(MENU_ENDPOINT.adminAll); // should evaluate to `${base}/api/menu/admin/all`
-    return res.data; // backend returns array/object directly
+    const res = await axiosClient.get(MENU_ENDPOINT.menus);
+    // backend in your repo returns data directly (array/object)
+    // normalize to array for safety
+    const data = res?.data;
+    if (Array.isArray(data)) return data;
+    // if backend returns { data: [...] } wrap
+    if (data && Array.isArray(data.data)) return data.data;
+    // otherwise try to coerce
+    return data ? (Array.isArray([data]) ? [data] : [data]) : [];
   } catch (error) {
-    // fallback to local mock as in current code
-    console.warn("Error fetching menus", error);
-    return {
-      data: [
-        /* keep mocked shape or transform to expected */
-      ],
-    };
+    console.warn("Error fetching menus, returning fallback menu:", error);
+    // safe minimal fallback so UI can render
+    return [
+      {
+        _id: "mock-home",
+        name: "Home",
+        slug: "home",
+        submenus: [],
+      },
+      {
+        _id: "mock-blog",
+        name: "Blog",
+        slug: "blog",
+        submenus: [{ _id: "mock-latest", name: "Latest", slug: "latest" }],
+      },
+    ];
   }
 };
 

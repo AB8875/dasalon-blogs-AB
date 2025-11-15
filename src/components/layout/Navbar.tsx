@@ -25,15 +25,22 @@ const Navbar: React.FC = () => {
   const { error } = useSocialMedia();
 
   // fetch menu data
+  // inside useEffect in src/components/layout/Navbar.tsx
+
   useEffect(() => {
     const fetchMenu = async () => {
       try {
-        const menuData = await getSubMenu();
+        // annotate menuData as any so TS won't infer 'never'
+        const menuData: any = await getSubMenu();
+
         // Handle new API response structure - data is directly the array
         const menuArray = Array.isArray(menuData)
           ? menuData
           : menuData?.data || [];
+
         const transformed = transformMenuDataToNavLinks(menuArray);
+        // Inside fetchMenu after menuArray is computed
+
         setNavLinks(transformed);
       } catch (err) {
         console.error("Error fetching menu:", err);

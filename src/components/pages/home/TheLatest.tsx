@@ -26,7 +26,7 @@ async function TheLatest() {
             imgPath={
               item.thumbnail?.formats?.medium?.url ||
               item.thumbnail?.url ||
-              "/fallback.jpg" // fallback image
+              "/placeholder.jpg" // placeholder image
             }
             type={item.categories?.[0]?.name || "Uncategorized"}
             time={new Date(item.createdAt ?? "").toLocaleDateString("en-US", {
