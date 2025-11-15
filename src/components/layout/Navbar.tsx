@@ -49,10 +49,9 @@ const Navbar: React.FC = () => {
     fetchMenu();
   }, []);
 
-  // active paths
-  const parts = pathname.split("/").filter(Boolean);
-  const activeIndex = parts[1] || null;
-  const activesubMenu = parts[2] || null;
+  const parts = pathname.split("/").filter(Boolean); // e.g. ["beauty","<menuId>","<submenuId>"]
+  const activeIndex = parts[0] || null; // menu slug (e.g. "beauty")
+  const activesubMenu = parts[2] || parts[1] || null; // submenu id if present
 
   // search handler
   const handleSearch = () => {
@@ -92,6 +91,7 @@ const Navbar: React.FC = () => {
                   alt="logo"
                   width={120}
                   height={70}
+                  style={{ height: "auto" }}
                 />
               </Link>
               <Heading
@@ -140,6 +140,7 @@ const Navbar: React.FC = () => {
                   alt="logo"
                   width={120}
                   height={70}
+                  style={{ height: "auto" }}
                 />
               </Link>
               <Heading size="xs" className="italic tracking-wider sm:mb-2.5">

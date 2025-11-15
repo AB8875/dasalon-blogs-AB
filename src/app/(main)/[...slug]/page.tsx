@@ -4,46 +4,49 @@ import { getMenusWithSubmenus } from "@/service/Menu";
 import { ISubmenu } from "@/types/transformerTypes";
 
 interface MenuPageProps {
-  params: { slug: string[] }; // keep simple typed params
+  params: any;
 }
 
-interface Menu {
-  _id: string;
-  name: string;
-  slug?: string;
-  submenus?: ISubmenu[];
-}
-
-/**
- * Catch-all route for menu/submenu pages: /[...slug]
- */
 export default async function MenuPage({ params }: MenuPageProps) {
-  const resolved = await params;
-  const { slug } = resolved;
+  // IMPORTANT: await params.slug directly (no optional chaining) so Next's
+  // segment promises are resolved correctly in all runtimes.
+  const rawSlug = await params.slug;
 
-  // Expected URL structure: /[menu-slug]/[menu-id]/[submenu-id]
-  if (!Array.isArray(slug) || slug.length !== 3) {
+  // Normalize possible shapes:
+  // - undefined/null -> []
+  // - string -> [string]
+  // - string[] -> as-is
+  const slugArr: string[] = Array.isArray(rawSlug)
+    ? rawSlug
+    : typeof rawSlug === "string"
+    ? [rawSlug]
+    : [];
+
+  if (
+    !Array.isArray(slugArr) ||
+    (slugArr.length !== 2 && slugArr.length !== 3)
+  ) {
     return (
       <div className="container mx-auto px-4 py-10">
         <h1 className="text-3xl font-semibold mb-6">Invalid URL Structure</h1>
         <p className="text-gray-600 mb-6">
-          Expected URL format: /[menu-slug]/[menu-id]/[submenu-id]
+          Expected URL format: /[menu-slug]/[menu-id] or
+          /[menu-slug]/[menu-id]/[submenu-id]
         </p>
         <div className="prose max-w-none">
-          <p>
-            Received: /{Array.isArray(slug) ? slug.join("/") : String(slug)}
-          </p>
-          <p>Number of segments: {Array.isArray(slug) ? slug.length : 0}</p>
+          <p>Received: /{slugArr.join("/")}</p>
+          <p>Number of segments: {slugArr.length}</p>
         </div>
       </div>
     );
   }
 
-  const [menuSlug, menuId, submenuId] = slug;
+  const menuSlug = slugArr[0];
+  const menuId = slugArr[1];
+  const submenuId = slugArr.length === 3 ? slugArr[2] : null;
 
   try {
-    // Fetch all menus with submenus
-    const menusData = (await getMenusWithSubmenus()) as Menu[] | null;
+    const menusData = await getMenusWithSubmenus();
 
     if (!menusData || !Array.isArray(menusData)) {
       return (
@@ -54,63 +57,94 @@ export default async function MenuPage({ params }: MenuPageProps) {
           <p className="text-gray-600 mb-6">
             Menu data could not be loaded from the backend.
           </p>
-          <div className="prose max-w-none">
-            <p>
-              This might be because the backend menu endpoints are not available
-              yet.
-            </p>
-          </div>
         </div>
       );
     }
 
-    // Find the menu by ID (explicitly type the callback param)
-    const menu = menusData.find((m: Menu) => String(m._id) === String(menuId));
+    // Find menu by id (fall back to matching slug if id not found)
+    const menu = menusData.find((m: any) => {
+      return m._id === menuId || String(m._id) === String(menuId);
+    });
 
     if (!menu) {
       return (
         <div className="container mx-auto px-4 py-10">
           <h1 className="text-3xl font-semibold mb-6">Menu Not Found</h1>
-          <p className="text-gray-600 mb-6">
-            The menu with ID "{menuId}" could not be found.
-          </p>
+          <p className="text-gray-600 mb-6">The menu could not be found.</p>
           <div className="prose max-w-none">
             <p>
-              Available menus:{" "}
-              {menusData.length
-                ? menusData.map((m) => m.name).join(", ")
-                : "None"}
+              Available menus: {menusData.map((m: any) => m.name).join(", ")}
             </p>
           </div>
         </div>
       );
     }
 
-    // Find the specific submenu (typed callback)
-    const submenu = menu.submenus?.find(
-      (sub: ISubmenu) => String(sub._id) === String(submenuId)
+    // If only two segments: render menu overview (list its submenus)
+    if (!submenuId) {
+      const submenus: ISubmenu[] = Array.isArray(menu.submenus)
+        ? menu.submenus
+        : [];
+      return (
+        <div className="container mx-auto px-4 py-10">
+          <h1 className="text-3xl font-semibold mb-6">{menu.name}</h1>
+          {menu.description && (
+            <p className="text-gray-600 mb-6">{menu.description}</p>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {submenus.length ? (
+              submenus.map((s: any) => (
+                <div key={s._id} className="rounded border p-4">
+                  <h2 className="text-lg font-semibold">{s.name}</h2>
+                  <p className="text-sm text-gray-500 mt-2">
+                    {s.description || ""}
+                  </p>
+                  <div className="mt-3">
+                    <a
+                      href={`/${menuSlug}/${menuId}/${s._id}`}
+                      className="text-primary underline"
+                    >
+                      View {s.name}
+                    </a>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p>No submenus found for this menu.</p>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // If 3 segments: find the submenu and render submenu page
+    const submenu = (menu.submenus || []).find(
+      (sub: any) =>
+        sub._id === submenuId || String(sub._id) === String(submenuId)
     );
 
     if (!submenu) {
+      // Submenu id not found under menu -> return not found / helpful message
       return (
         <div className="container mx-auto px-4 py-10">
           <h1 className="text-3xl font-semibold mb-6">Submenu Not Found</h1>
           <p className="text-gray-600 mb-6">
-            The submenu with ID "{submenuId}" could not be found in menu "
+            The submenu with ID "{submenuId}" could not be found under menu "
             {menu.name}".
           </p>
           <div className="prose max-w-none">
             <p>
               Available submenus:{" "}
-              {menu.submenus && menu.submenus.length
-                ? menu.submenus.map((s: ISubmenu) => s.name).join(", ")
-                : "None"}
+              {(menu.submenus || []).map((s: any) => s.name).join(", ") ||
+                "None"}
             </p>
           </div>
         </div>
       );
     }
 
+    // Render submenu content (replace with actual blog list, hero, etc.)
     return (
       <div className="container mx-auto px-4 py-10">
         <h1 className="text-3xl font-semibold mb-6 capitalize">
@@ -121,10 +155,11 @@ export default async function MenuPage({ params }: MenuPageProps) {
           <p className="text-gray-600 mb-6">{submenu.description}</p>
         )}
 
-        {/* Add your content here based on the submenu */}
+        {/* TODO: Replace this with your blog listing component that fetches by submenu id */}
         <div className="prose max-w-none">
           <p>
-            Content for {submenu.name} under {menu.name}
+            Content for <strong>{submenu.name}</strong> under{" "}
+            <strong>{menu.name}</strong>.
           </p>
           <p>Menu ID: {menuId}</p>
           <p>Submenu ID: {submenuId}</p>
@@ -133,21 +168,12 @@ export default async function MenuPage({ params }: MenuPageProps) {
     );
   } catch (err) {
     console.error("Error fetching menu data:", err);
-    // Return a graceful fallback instead of throwing
     return (
       <div className="container mx-auto px-4 py-10">
         <h1 className="text-3xl font-semibold mb-6">Menu Not Found</h1>
         <p className="text-gray-600 mb-6">
           The requested menu or submenu could not be found.
         </p>
-        <div className="prose max-w-none">
-          <p>Menu ID: {menuId}</p>
-          <p>Submenu ID: {submenuId}</p>
-          <p>
-            This might be because the backend menu endpoints are not available
-            yet.
-          </p>
-        </div>
       </div>
     );
   }
