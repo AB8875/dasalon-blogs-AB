@@ -43,7 +43,7 @@ interface BlogPost {
   thumbnail: string;
   menu: string;
   submenu: string;
-  author?: string; // keep optional for backward compatibility
+  author?: string;
   authors?: string[];
   shareUrl: string;
   featured: boolean;
