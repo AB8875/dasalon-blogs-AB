@@ -1,3 +1,4 @@
+// src/components/common/SidebarDropDown.tsx
 "use client";
 
 import Link from "next/link";
@@ -14,10 +15,36 @@ interface SidebarDropDownProps {
   closeSidebar: () => void;
 }
 
+type RawMenuResponse = any; // intentionally loose — adjust if you know exact shape
+type MenuArray = any[];
+
+// helper guard
+function isArrayLikeData(x: unknown): x is MenuArray {
+  return Array.isArray(x);
+}
+
 const SidebarDropDown = ({ closeSidebar }: SidebarDropDownProps) => {
-  const { data: menuData } = useSubMenu();
-  // Handle new API response structure - data is directly the array
-  const menuArray = Array.isArray(menuData) ? menuData : menuData?.data || [];
+  // cast the hook return to a known shape so TS stops inferring `never`
+  const hookResult = useSubMenu() as { data?: unknown } | undefined;
+  const menuData = hookResult?.data;
+
+  // Determine the array safely — supports both `data` being array or `{ data: [...] }`
+  let menuArray: MenuArray = [];
+
+  if (isArrayLikeData(menuData)) {
+    menuArray = menuData;
+  } else if (
+    menuData &&
+    typeof menuData === "object" &&
+    isArrayLikeData((menuData as any).data)
+  ) {
+    menuArray = (menuData as any).data;
+  } else {
+    // fallback: maybe hook returns directly an object with menus property
+    const maybe = menuData as any;
+    if (maybe?.menus && Array.isArray(maybe.menus)) menuArray = maybe.menus;
+  }
+
   const navLinks = transformMenuDataToNavLinks(menuArray);
 
   return (
@@ -32,7 +59,7 @@ const SidebarDropDown = ({ closeSidebar }: SidebarDropDownProps) => {
           </CollapsibleTrigger>
 
           <CollapsibleContent className="flex flex-col gap-2 px-4 py-2">
-            {item.dropDown.map((sub, i) => (
+            {(item.dropDown || []).map((sub: any, i: number) => (
               <Link
                 key={i}
                 href={sub.dropdownpath}
