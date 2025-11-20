@@ -30,6 +30,7 @@
     "@tanstack/react-query-devtools": "latest",
     "@tiptap/core": "latest",
     "@tiptap/extension-history": "^3.7.2",
+    "@tiptap/extension-image": "^3.11.0",
     "@tiptap/extension-link": "latest",
     "@tiptap/extension-text-align": "latest",
     "@tiptap/extension-underline": "latest",

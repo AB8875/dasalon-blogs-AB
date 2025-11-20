@@ -80,7 +80,8 @@ export const blogByDocumentId = async (documentId: string) => {
 export const fetblogAll = async (limit = 6) => {
   const url = `${BLOG_ENDPOINT.blogs}?featured=true&page=1&limit=${limit}&sort=createdAt:desc`;
   const res = await axiosClient.get(url);
-  return res.data;
+  const data = Array.isArray(res.data) ? res.data : res.data?.data || [];
+  return { data };
 };
 
 /**

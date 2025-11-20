@@ -229,7 +229,7 @@ export default function AdminPostsPage() {
 
       {/* Preview Dialog */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden flex flex-col">
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-[90vw] md:max-w-[750px] max-h-[90vh] p-0 overflow-hidden flex flex-col">
           <DialogHeader className="px-6 py-4 border-b shrink-0">
             <DialogTitle>Post Preview</DialogTitle>
           </DialogHeader>
@@ -685,7 +685,7 @@ const CreatePostModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-full max-w-full sm:max-w-xl md:max-w-3xl lg:max-w-4xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full max-w-full sm:max-w-xl md:max-w-3xl lg:max-w-[750px] p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg sm:text-xl">
             {editingPost ? "Edit Post" : "Create New Post"}
