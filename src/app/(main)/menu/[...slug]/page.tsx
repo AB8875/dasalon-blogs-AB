@@ -1,16 +1,12 @@
-// src/app/(main)/[...slug]/page.tsx
-import { notFound } from "next/navigation";
 import { getMenusWithSubmenus } from "@/service/Menu";
-import { ISubmenu } from "@/types/transformerTypes";
+import type { ISubmenu } from "@/types/transformerTypes";
 
 interface MenuPageProps {
-  params: any;
+  params: Promise<{ slug: string[] }>;
 }
 
 export default async function MenuPage({ params }: MenuPageProps) {
-  // IMPORTANT: await params.slug directly (no optional chaining) so Next's
-  // segment promises are resolved correctly in all runtimes.
-  const rawSlug = await params.slug;
+  const { slug: rawSlug } = await params;
 
   // Normalize possible shapes:
   // - undefined/null -> []
@@ -30,11 +26,11 @@ export default async function MenuPage({ params }: MenuPageProps) {
       <div className="container mx-auto px-4 py-10">
         <h1 className="text-3xl font-semibold mb-6">Invalid URL Structure</h1>
         <p className="text-gray-600 mb-6">
-          Expected URL format: /[menu-slug]/[menu-id] or
-          /[menu-slug]/[menu-id]/[submenu-id]
+          Expected URL format: /menu/[menu-slug]/[menu-id] or
+          /menu/[menu-slug]/[menu-id]/[submenu-id]
         </p>
         <div className="prose max-w-none">
-          <p>Received: /{slugArr.join("/")}</p>
+          <p>Received: /menu/{slugArr.join("/")}</p>
           <p>Number of segments: {slugArr.length}</p>
         </div>
       </div>
@@ -102,7 +98,7 @@ export default async function MenuPage({ params }: MenuPageProps) {
                   </p>
                   <div className="mt-3">
                     <a
-                      href={`/${menuSlug}/${menuId}/${s._id}`}
+                      href={`/menu/${menuSlug}/${menuId}/${s._id}`}
                       className="text-primary underline"
                     >
                       View {s.name}

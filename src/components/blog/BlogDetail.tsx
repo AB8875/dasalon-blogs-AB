@@ -2,19 +2,18 @@
 
 import Image from "next/image";
 
+// blogdetail.tsx
 interface BlogDetailProps {
-  slug: string;
+  blog: {
+    title: string;
+    thumbnail: string;
+    content: string;
+    // Add other blog fields you use
+  };
 }
 
-export default function BlogDetail({ slug }: BlogDetailProps) {
-  // For now, dummy data. You’ll connect this later with your backend or static JSON.
-  const blog = {
-    title: "Example Blog Title",
-    thumbnail: "/images/blog-default.jpg",
-    content:
-      "This is a placeholder for the blog content. You can replace it with dynamic data fetched from your API.",
-  };
-
+export default function BlogDetail({ blog }: BlogDetailProps) {
+  // Use the blog prop directly
   return (
     <div className="max-w-4xl mx-auto py-10 px-4">
       <h1 className="text-3xl font-bold mb-6">{blog.title}</h1>
