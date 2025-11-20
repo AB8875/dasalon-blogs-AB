@@ -11,9 +11,11 @@ export default async function BlogPage({ params }: BlogPageProps) {
 
   const blogData = await fetchBlogByIdServerSide(slug);
 
-  if (!blogData || !blogData.data || blogData.data.length === 0) {
+  const blogs = Array.isArray(blogData) ? blogData : blogData?.data;
+
+  if (!blogs || blogs.length === 0) {
     notFound();
   }
 
-  return <BlogDetail blog={blogData.data[0]} />;
+  return <BlogDetail blog={blogs[0]} />;
 }

@@ -6,17 +6,20 @@ import axiosClient from "../AxiosClient";
  * Get blogs by submenu id with server-side pagination
  * Returns: { data: [...] } for backward compatibility with parts of the UI expecting .data
  */
-export const blogAll = async (
+export const getBlogsBySubmenu = async (
   submenuId: string,
-  page: number = 1,
-  limit: number = 16
+  page = 1,
+  limit = 16
 ) => {
-  const url = `${BLOG_ENDPOINT.blogs}?submenu=${encodeURIComponent(
+  const url = `${
+    BLOG_ENDPOINT.blogs
+  }?filters[submenu][documentId][$eq]=${encodeURIComponent(
     submenuId
-  )}&page=${page}&limit=${limit}&sort=createdAt:desc`;
+  )}&page=${page}&limit=${limit}&sort=createdAt:desc&populate=*`;
   const res = await axiosClient.get(url);
   // backend returns array or paginated object; normalize to { data: [...] }
-  return { data: res.data };
+  const data = Array.isArray(res.data) ? res.data : res.data?.data || [];
+  return { data };
 };
 
 /**
@@ -25,8 +28,8 @@ export const blogAll = async (
  */
 export const infiniteBlogAll = async (
   submenuDocumentId: string,
-  page: number = 1,
-  pageSize: number = 4
+  page = 1,
+  pageSize = 4
 ) => {
   // Prefer simple query params; keep legacy Strapi-like url commented if needed.
   const url = `${BLOG_ENDPOINT.blogs}?submenu=${encodeURIComponent(
@@ -39,7 +42,7 @@ export const infiniteBlogAll = async (
 /**
  * Latest blogs (most recent first)
  */
-export const latestBlogs = async (limit: number = 5) => {
+export const latestBlogs = async (limit = 5) => {
   const url = `${BLOG_ENDPOINT.blogs}?page=1&limit=${limit}&sort=createdAt:desc`;
   const res = await axiosClient.get(url);
   return { data: res.data };
@@ -74,7 +77,7 @@ export const blogByDocumentId = async (documentId: string) => {
 /**
  * Featured blogs (used on homepage)
  */
-export const fetblogAll = async (limit: number = 6) => {
+export const fetblogAll = async (limit = 6) => {
   const url = `${BLOG_ENDPOINT.blogs}?featured=true&page=1&limit=${limit}&sort=createdAt:desc`;
   const res = await axiosClient.get(url);
   return res.data;
@@ -85,8 +88,9 @@ export const fetblogAll = async (limit: number = 6) => {
  */
 export const blogBySlug = async (slug: string) => {
   if (!slug) return null;
-  // Try a slug query first
-  const url = `${BLOG_ENDPOINT.blogs}?slug=${encodeURIComponent(slug)}`;
+  const url = `${BLOG_ENDPOINT.blogs}?filters[slug][$eq]=${encodeURIComponent(
+    slug
+  )}&populate=*`;
   const res = await axiosClient.get(url);
   return res.data;
 };
@@ -94,7 +98,7 @@ export const blogBySlug = async (slug: string) => {
 /**
  * Home page specific listing by submenu/document id
  */
-export const allHomePageBlogs = async (id: string, limit: number = 5) => {
+export const allHomePageBlogs = async (id: string, limit = 5) => {
   const url = `${BLOG_ENDPOINT.blogs}?submenu=${encodeURIComponent(
     id
   )}&page=1&limit=${limit}&sort=createdAt:desc`;

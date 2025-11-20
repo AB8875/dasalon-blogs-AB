@@ -62,7 +62,16 @@ export type BaseBlogItem = {
   slug: string;
   thumbnail?: {
     formats?: {
+      large?: {
+        url: string;
+      };
       medium?: {
+        url: string;
+      };
+      small?: {
+        url: string;
+      };
+      thumbnail?: {
         url: string;
       };
     };
@@ -78,6 +87,7 @@ export type BaseBlogItem = {
   title: string;
   headingClass?: string;
   description?: string;
+  content?: string;
 };
 
 export type TBlogItem = BaseBlogItem;
@@ -100,7 +110,16 @@ export type IBlogItem = {
   thumbnail?: {
     url?: string;
     formats?: {
+      large?: {
+        url?: string;
+      };
       medium?: {
+        url?: string;
+      };
+      small?: {
+        url?: string;
+      };
+      thumbnail?: {
         url?: string;
       };
     };
@@ -156,7 +175,16 @@ export type BlogPost = {
   thumbnail?: {
     url?: string;
     formats?: {
+      large?: {
+        url?: string;
+      };
       medium?: {
+        url?: string;
+      };
+      small?: {
+        url?: string;
+      };
+      thumbnail?: {
         url?: string;
       };
     };

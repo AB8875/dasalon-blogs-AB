@@ -1,6 +1,6 @@
 import {
   allHomePageBlogs,
-  blogAll,
+  getBlogsBySubmenu,
   blogById,
   blogBySlug,
   fetblogAll,
@@ -8,13 +8,12 @@ import {
   latestBlogs,
 } from "@/service/blog/Blogs";
 import { useQuery } from "@tanstack/react-query";
-// import { useQuery } from "@tanstack/react-query";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
 export const useBlog = (subMenuId: string) => {
   return useQuery({
     queryKey: ["blog", subMenuId],
-    queryFn: () => blogAll(subMenuId),
+    queryFn: () => getBlogsBySubmenu(subMenuId),
     enabled: !!subMenuId,
   });
 };
