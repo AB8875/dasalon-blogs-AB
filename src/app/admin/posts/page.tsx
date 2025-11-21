@@ -24,8 +24,8 @@ interface BlogPost {
   thumbnail?: string;
   menu?: string;
   submenu?: string;
-  authors?: string[];
-  author?: string;
+  authors?: string[]; // ids
+  author?: string; // resolved name (for display)
   shareUrl?: string;
   featured?: boolean;
   status?: string;
@@ -41,30 +41,78 @@ function getCloudinaryPublicId(url?: string) {
   return match && match[1] ? match[1] : "";
 }
 
+type UserItem = { _id: string; name: string; email?: string };
+
 export default function AdminPostsPage() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [isGridView, setIsGridView] = useState(true);
   const [loading, setLoading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewPost, setPreviewPost] = useState<BlogPost | null>(null);
+  const [usersMap, setUsersMap] = useState<Record<string, UserItem>>({});
 
   useEffect(() => {
     loadPosts();
   }, []);
 
+  // load posts and users, then map author ids -> names
   async function loadPosts() {
     setLoading(true);
     try {
-      const res = await fetch(`${apiUrl}/api/blogs`);
-      if (!res.ok) throw new Error(`Failed to fetch posts (${res.status})`);
-      const data = await res.json();
-      const normalized = Array.isArray(data)
-        ? data.map((p: any) => ({
-            ...p,
-            author:
-              p.author ||
-              (Array.isArray(p.authors) ? p.authors.join(", ") : ""),
-          }))
+      const [postsRes, usersRes] = await Promise.all([
+        fetch(`${apiUrl}/api/blogs`),
+        fetch(`${apiUrl}/api/users`),
+      ]);
+
+      if (!postsRes.ok)
+        throw new Error(`Failed to fetch posts (${postsRes.status})`);
+      const postsData = await postsRes.json();
+
+      // handle users response shape { items: [...] } or [...]
+      let usersRaw: any[] = [];
+      try {
+        const ud = await usersRes.json();
+        usersRaw = Array.isArray(ud?.items)
+          ? ud.items
+          : Array.isArray(ud)
+          ? ud
+          : [];
+      } catch {
+        usersRaw = [];
+      }
+
+      const usersList: UserItem[] = usersRaw.map((u: any) => ({
+        _id: u._id || u.id,
+        name: u.name,
+        email: u.email,
+      }));
+      const map: Record<string, UserItem> = {};
+      usersList.forEach((u) => (map[u._id] = u));
+      setUsersMap(map);
+
+      const normalized = Array.isArray(postsData)
+        ? postsData.map((p: any) => {
+            // determine authors array (id strings)
+            const authorIds: string[] =
+              Array.isArray(p.authors) && p.authors.length > 0
+                ? p.authors
+                : p.author
+                ? [p.author]
+                : [];
+
+            // build resolved author display: join names if possible, fallback to id
+            const resolvedName =
+              authorIds
+                .map((aid) => map[aid]?.name || aid)
+                .filter(Boolean)
+                .join(", ") || "";
+
+            return {
+              ...p,
+              authors: authorIds,
+              author: resolvedName,
+            } as BlogPost;
+          })
         : [];
       setPosts(normalized);
     } catch (err) {
@@ -98,7 +146,14 @@ export default function AdminPostsPage() {
   };
 
   const openPreview = (post: BlogPost) => {
-    setPreviewPost(post);
+    // ensure author resolution up-to-date (in case map changed)
+    const resolved = { ...post };
+    if (resolved.authors && resolved.authors.length > 0) {
+      resolved.author = resolved.authors
+        .map((aid) => usersMap[aid]?.name || aid)
+        .join(", ");
+    }
+    setPreviewPost(resolved);
     setPreviewOpen(true);
   };
 
@@ -260,7 +315,7 @@ export default function AdminPostsPage() {
                   | {previewPost.status}
                 </p>
                 <p className="text-gray-700">
-                  <strong>Author:</strong> {previewPost.author}
+                  <strong>Author:</strong> {previewPost.author || "—"}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {Array.isArray(previewPost.tags) &&

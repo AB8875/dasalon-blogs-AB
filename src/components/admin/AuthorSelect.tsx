@@ -1,62 +1,40 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
 
-type UserItem = { _id: string; name: string; email?: string };
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
-type AuthorSelectProps = {
-  value?: UserItem | null; // currently selected author
-  onChange?: (user: UserItem | null) => void;
-  apiUrl?: string;
+export type UserItem = { _id: string; name: string; email?: string };
+
+interface AuthorSelectProps {
+  value?: UserItem | null;
+  onChange: (user: UserItem | null) => void;
+  apiUrl: string;
   placeholder?: string;
-};
-
-const DEFAULT_API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  // optional: parent can provide a create function (name -> UserItem)
+  createAuthorByName?: (name: string) => Promise<UserItem | null>;
+}
 
 /**
  * AuthorSelect
- * - Google-style typeahead
- * - Debounced search
- * - Keyboard nav (↑↓) + Enter to select / create
- * - Click outside to close
+ * - Single field typeahead
+ * - Server-backed suggestions
+ * - "Create 'X'" action when no exact match
  */
 export default function AuthorSelect({
-  value = null,
+  value,
   onChange,
-  apiUrl = DEFAULT_API,
+  apiUrl,
   placeholder = "Type author name (select or create)",
+  createAuthorByName,
 }: AuthorSelectProps) {
-  const [query, setQuery] = useState("");
-  const [items, setItems] = useState<UserItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState(false);
-  const [highlight, setHighlight] = useState<number>(-1);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [query, setQuery] = useState<string>(value?.name || "");
+  const [authors, setAuthors] = useState<UserItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [open, setOpen] = useState<boolean>(false);
+
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // show selected name in input when prop value provided
-  useEffect(() => {
-    if (value) {
-      setQuery(value.name);
-    }
-  }, [value]);
-
-  // click outside closes dropdown
-  useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      if (!containerRef.current) return;
-      if (!containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setHighlight(-1);
-        // if there is a selected value show name
-        if (value) setQuery(value.name);
-      }
-    }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [value]);
-
-  // debounce helper
-  function debounce<T extends (...a: any[]) => void>(fn: T, ms = 300) {
+  // Debounce helper
+  function debounce<T extends (...args: any[]) => void>(fn: T, ms = 300) {
     let t: any;
     return (...args: Parameters<T>) => {
       clearTimeout(t);
@@ -64,99 +42,125 @@ export default function AuthorSelect({
     };
   }
 
-  // fetch users
-  const fetchUsers = async (q: string) => {
-    setLoading(true);
-    try {
+  // Load authors once on mount (used for local filtering)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
       const token =
         typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch(`${apiUrl}/api/users`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      const data = await res.json();
-      const list: any[] = Array.isArray(data?.items)
-        ? data.items
-        : Array.isArray(data)
-        ? data
-        : [];
-      const normalized = list
-        .map((u) => ({ _id: u._id || u.id, name: u.name, email: u.email }))
-        .filter(
-          (u) =>
-            !q ||
-            (u.name || "").toLowerCase().includes(q.toLowerCase()) ||
-            (u.email || "").toLowerCase().includes(q.toLowerCase())
-        )
-        .slice(0, 30);
-      setItems(normalized);
-      setOpen(true);
-    } catch (err) {
-      console.error("Author search failed", err);
-      setItems([]);
-      setOpen(true); // allow create action even on failure
-    } finally {
-      setLoading(false);
-    }
-  };
+      try {
+        const res = await fetch(`${apiUrl}/api/users`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const data = await res.json();
+        const items = Array.isArray(data?.items)
+          ? data.items
+          : Array.isArray(data)
+          ? data
+          : [];
+        if (!mounted) return;
+        setAuthors(
+          items.map((u: any) => ({
+            _id: u._id || u.id,
+            name: u.name,
+            email: u.email,
+          }))
+        );
+      } catch (err) {
+        if (!mounted) return;
+        console.error("Author list load failed", err);
+        setAuthors([]);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [apiUrl]);
 
-  // debounced version
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedFetch = React.useCallback(debounce(fetchUsers, 220), [apiUrl]);
+  // Local filtered suggestions
+  const filtered = useMemo(() => {
+    const q = (query || "").trim().toLowerCase();
+    if (!q) return authors;
+    return authors.filter(
+      (a) =>
+        (a.name || "").toLowerCase().includes(q) ||
+        (a.email || "").toLowerCase().includes(q)
+    );
+  }, [authors, query]);
 
-  // When user types
+  // Server search to refresh authors list (debounced)
+  const doServerSearch = useMemo(
+    () =>
+      debounce(async (q: string) => {
+        if (!q.trim()) return;
+        setLoading(true);
+        const token =
+          typeof window !== "undefined" ? localStorage.getItem("token") : null;
+        try {
+          const res = await fetch(`${apiUrl}/api/users`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          const data = await res.json();
+          const items = Array.isArray(data?.items)
+            ? data.items
+            : Array.isArray(data)
+            ? data
+            : [];
+          const mapped: UserItem[] = items.map((u: any) => ({
+            _id: u._id || u.id,
+            name: u.name,
+            email: u.email,
+          }));
+          // merge (dedupe)
+          setAuthors((prev) => {
+            const map = new Map(prev.map((p) => [p._id, p]));
+            for (const m of mapped) map.set(m._id, m);
+            return Array.from(map.values());
+          });
+        } catch (err) {
+          console.error("author server search failed", err);
+        } finally {
+          setLoading(false);
+        }
+      }, 350),
+    [apiUrl]
+  );
+
   useEffect(() => {
-    if (!query) {
-      // show full list if input cleared (or close)
-      setItems([]);
-      setOpen(false);
-      setHighlight(-1);
-      return;
-    }
-    debouncedFetch(query);
-  }, [query, debouncedFetch]);
+    if (query.trim()) doServerSearch(query);
+  }, [query, doServerSearch]);
 
-  // keyboard handling
-  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!open) {
-      if (e.key === "ArrowDown") setOpen(true);
-      return;
-    }
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setHighlight((h) => Math.min(h + 1, items.length)); // allow last index = create action
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setHighlight((h) => Math.max(h - 1, -1));
-    } else if (e.key === "Escape") {
-      setOpen(false);
-      setHighlight(-1);
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (highlight >= 0 && highlight < items.length) {
-        // select highlighted
-        selectItem(items[highlight]);
-      } else {
-        // create new author from current query
-        createAuthorFromQuery(query.trim());
+  // reflect external changes to value
+  useEffect(() => {
+    setQuery(value?.name || "");
+  }, [value]);
+
+  // Create author helper (uses parent fn if provided)
+  async function createNewAuthor(name: string): Promise<UserItem | null> {
+    if (!name.trim()) return null;
+    if (createAuthorByName) {
+      try {
+        const created = await createAuthorByName(name.trim());
+        if (created) {
+          // ensure list updated
+          setAuthors((p) => [
+            created,
+            ...p.filter((x) => x._id !== created._id),
+          ]);
+          return created;
+        }
+        return null;
+      } catch (err) {
+        console.error("createAuthorByName failed", err);
+        return null;
       }
     }
-  };
 
-  function selectItem(u: UserItem) {
-    setQuery(u.name);
-    setOpen(false);
-    setHighlight(-1);
-    onChange?.(u);
-  }
-
-  async function createAuthorFromQuery(name: string) {
-    if (!name) return;
-    // create minimal user via backend
+    // fallback: POST /api/users
     setLoading(true);
     try {
       const token =
         typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      // fallback email/password
       const safeName = name.trim().toLowerCase().replace(/\s+/g, ".");
       const genEmail = `${safeName}.${Date.now() % 10000}@local.internal`;
       const genPassword = Math.random().toString(36).slice(2, 10);
@@ -183,90 +187,106 @@ export default function AuthorSelect({
         name: created.name,
         email: created.email,
       };
-      setItems((p) => [u, ...p]);
-      selectItem(u);
+      setAuthors((p) => [u, ...p.filter((x) => x._id !== u._id)]);
+      return u;
     } catch (err) {
       console.error("create author failed", err);
       alert("Failed to create author — check console.");
+      return null;
     } finally {
       setLoading(false);
     }
   }
 
+  // UI: whether exact match exists
+  const exactMatch = authors.find(
+    (a) => a.name.trim().toLowerCase() === (query || "").trim().toLowerCase()
+  );
+
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative">
       <input
         ref={inputRef}
+        type="text"
+        className="w-full p-2 border rounded"
+        placeholder={placeholder}
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
-          onChange?.(null); // clear parent selection until user picks
+          onChange(null); // unset selection on manual typing
+          setOpen(true);
         }}
-        onFocus={() => {
-          if (query) {
-            debouncedFetch(query);
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)} // allow clicks
+        onKeyDown={async (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            // if there is an exact match, select it
+            if (exactMatch) {
+              onChange(exactMatch);
+              setQuery(exactMatch.name);
+              setOpen(false);
+              return;
+            }
+            // otherwise create new
+            const created = await createNewAuthor(query.trim());
+            if (created) {
+              onChange(created);
+              setQuery(created.name);
+              setOpen(false);
+            }
+          } else if (e.key === "Escape") {
+            setOpen(false);
           }
         }}
-        onKeyDown={onKeyDown}
-        placeholder={placeholder}
-        className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-sky-400"
-        aria-autocomplete="list"
-        aria-expanded={open}
       />
 
-      {/* suggestion box (absolute) */}
       {open && (
-        <div
-          className="absolute left-0 right-0 z-50 mt-1 bg-white border rounded shadow max-h-60 overflow-auto"
-          role="listbox"
-        >
-          <div className="p-2 text-xs text-gray-500 border-b">
-            {loading ? "Searching…" : `Suggestions (${items.length})`}
-          </div>
-
-          {items.length > 0 ? (
-            items.map((u, idx) => {
-              const isHighlighted = highlight === idx;
-              return (
-                <div
-                  key={u._id}
-                  role="option"
-                  aria-selected={isHighlighted}
-                  className={`flex items-center justify-between gap-2 px-3 py-2 cursor-pointer ${
-                    isHighlighted ? "bg-sky-50" : "hover:bg-gray-50"
-                  }`}
-                  onMouseEnter={() => setHighlight(idx)}
-                  onMouseLeave={() => setHighlight(-1)}
-                  onClick={() => selectItem(u)}
-                >
-                  <div>
-                    <div className="font-medium text-sm">{u.name}</div>
-                    {u.email && (
-                      <div className="text-xs text-gray-400">{u.email}</div>
-                    )}
-                  </div>
-                </div>
-              );
-            })
+        <div className="absolute left-0 right-0 mt-1 bg-white border rounded shadow z-50 max-h-56 overflow-auto">
+          {loading ? (
+            <div className="p-2 text-sm text-gray-500">Searching…</div>
+          ) : filtered.length === 0 ? (
+            <div className="p-2 text-sm text-gray-500">No matching authors</div>
           ) : (
-            <div className="p-3 text-sm text-gray-600">No matches.</div>
+            filtered.map((a: UserItem) => (
+              <div
+                key={a._id}
+                className="p-2 cursor-pointer hover:bg-gray-100 flex items-start gap-3"
+                onMouseDown={(ev) => {
+                  ev.preventDefault();
+                  onChange(a);
+                  setQuery(a.name);
+                  setOpen(false);
+                }}
+              >
+                <div className="flex-1">
+                  <div className="font-medium text-sm">{a.name}</div>
+                  {a.email && (
+                    <div className="text-xs text-gray-500">{a.email}</div>
+                  )}
+                </div>
+              </div>
+            ))
           )}
 
-          {/* create new call-to-action: always present at the bottom */}
-          <div
-            className={`px-3 py-2 border-t cursor-pointer flex items-center justify-between ${
-              highlight === items.length ? "bg-sky-50" : "hover:bg-gray-50"
-            }`}
-            onMouseEnter={() => setHighlight(items.length)}
-            onClick={() => createAuthorFromQuery(query.trim())}
-            role="button"
-          >
-            <div className="text-sm">
-              Create new author:{" "}
-              <span className="font-medium">{query || "Unnamed"}</span>
+          {/* Create action — only show if query non-empty and exact match not present */}
+          {!loading && query.trim() !== "" && !exactMatch && (
+            <div
+              className="p-2 cursor-pointer hover:bg-gray-100 border-t"
+              onMouseDown={async (ev) => {
+                ev.preventDefault();
+                const created = await createNewAuthor(query.trim());
+                if (created) {
+                  onChange(created);
+                  setQuery(created.name);
+                  setOpen(false);
+                }
+              }}
+            >
+              <div className="text-sm font-medium">Create “{query.trim()}”</div>
+              <div className="text-xs text-gray-500">Create new author</div>
             </div>
-            <div className="text-xs text-gray-500">Enter</div>
-          </div>
+          )}
         </div>
       )}
     </div>

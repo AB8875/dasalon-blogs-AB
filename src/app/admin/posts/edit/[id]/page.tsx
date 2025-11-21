@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import AuthorSelect from "@/components/admin/AuthorSelect";
 import {
   Select,
   SelectTrigger,
@@ -17,7 +18,6 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { CldImage } from "next-cloudinary";
 import { slugify } from "@/utils/slugify";
-import AuthorSelect from "@/components/admin/AuthorSelect";
 
 const RichTextEditor = dynamic(
   () => import("@/components/admin/RichTextEditor"),
@@ -37,13 +37,13 @@ function cryptoRandomId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-type UserItem = { _id: string; name: string; email?: string };
-
 type MenuItem = {
   _id: string;
   name: string;
   submenus: Array<{ _id: string; name: string }>;
 };
+
+type UserItem = { _id: string; name: string; email?: string };
 
 export default function EditPostPage() {
   const router = useRouter();
@@ -52,15 +52,14 @@ export default function EditPostPage() {
 
   const [loading, setLoading] = useState(false);
   const [menus, setMenus] = useState<MenuItem[]>([]);
+  const [authorsList, setAuthorsList] = useState<UserItem[]>([]);
+  const [authorSelected, setAuthorSelected] = useState<UserItem | null>(null);
 
   // form fields
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [thumbnail, setThumbnail] = useState("");
-  // replaced string author with type-safe selected user
-  const [authorSelected, setAuthorSelected] = useState<UserItem | null>(null);
-
   const [shareUrl, setShareUrl] = useState("");
   const [featured, setFeatured] = useState(false);
   const [status, setStatus] = useState("published");
@@ -80,10 +79,37 @@ export default function EditPostPage() {
 
   useEffect(() => {
     if (!id) return;
-    loadPost();
     loadMenus();
+    preloadAuthors();
+    loadPost();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  async function preloadAuthors() {
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    try {
+      const res = await fetch(`${apiUrl}/api/users`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json();
+      const items = Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data)
+        ? data
+        : [];
+      setAuthorsList(
+        items.map((u: any) => ({
+          _id: u._id || u.id,
+          name: u.name,
+          email: u.email,
+        }))
+      );
+    } catch (err) {
+      console.error("preload authors failed", err);
+      setAuthorsList([]);
+    }
+  }
 
   async function loadMenus() {
     const token =
@@ -132,6 +158,57 @@ export default function EditPostPage() {
       setContent(p.content || "");
       setImages(p.images || []);
 
+      // authors: backend stores authors as array of ids. Try to resolve to name using preloaded authors or fetch user
+      const authorId =
+        Array.isArray(p.authors) && p.authors.length > 0
+          ? p.authors[0]
+          : p.author || null;
+      if (authorId) {
+        // try find in preloaded authorsList first
+        const found = authorsList.find((a) => a._id === authorId);
+        if (found) {
+          setAuthorSelected(found);
+        } else {
+          // fetch specific user
+          try {
+            const token =
+              typeof window !== "undefined"
+                ? localStorage.getItem("token")
+                : null;
+            const r = await fetch(`${apiUrl}/api/users/${authorId}`, {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (r.ok) {
+              const u = await r.json();
+              const uid = u._id || u.id;
+              const uname = u.name || (u as any).fullName || String(uid);
+              const userObj: UserItem = {
+                _id: uid,
+                name: uname,
+                email: u.email,
+              };
+              setAuthorSelected(userObj);
+              setAuthorsList((prev) =>
+                prev.find((x) => x._id === uid) ? prev : [userObj, ...prev]
+              );
+            } else {
+              setAuthorSelected({
+                _id: String(authorId),
+                name: String(authorId),
+              });
+            }
+          } catch (err) {
+            console.error("fetch author detail failed", err);
+            setAuthorSelected({
+              _id: String(authorId),
+              name: String(authorId),
+            });
+          }
+        }
+      } else {
+        setAuthorSelected(null);
+      }
+
       // restore menuPairs: if backend has menus[]
       if (Array.isArray(p.menus) && p.menus.length > 0) {
         setMenuPairs(
@@ -150,46 +227,6 @@ export default function EditPostPage() {
             submenu: p.submenu || "",
           },
         ]);
-      }
-
-      // Resolve author: backend may return authors: [id] or legacy author string
-      // Prefer authors array (IDs) -> fetch user detail
-      if (Array.isArray(p.authors) && p.authors.length > 0) {
-        const aid = p.authors[0];
-        try {
-          const token =
-            typeof window !== "undefined"
-              ? localStorage.getItem("token")
-              : null;
-          const ures = await fetch(`${apiUrl}/api/users/${aid}`, {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          });
-          if (ures.ok) {
-            const u = await ures.json();
-            setAuthorSelected({
-              _id: u._id || u.id,
-              name: u.name,
-              email: u.email,
-            });
-          } else {
-            // fallback to author string (if present)
-            if (p.author) {
-              setAuthorSelected({ _id: aid, name: p.author, email: "" });
-            } else {
-              setAuthorSelected(null);
-            }
-          }
-        } catch (err) {
-          // network/resolve error: fallback to legacy author or null
-          if (p.author)
-            setAuthorSelected({ _id: p.author, name: p.author, email: "" });
-          else setAuthorSelected(null);
-        }
-      } else if (p.author) {
-        // legacy single author string available
-        setAuthorSelected({ _id: p.author, name: p.author, email: "" });
-      } else {
-        setAuthorSelected(null);
       }
     } catch (err) {
       console.error("loadPost error:", err);
@@ -254,7 +291,7 @@ export default function EditPostPage() {
     }
   };
 
-  // tags/menu helpers same pattern as create
+  // tags/menu helpers
   const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (
       e.key === "Enter" &&
@@ -285,12 +322,55 @@ export default function EditPostPage() {
     setMenuPairs((p) => p.map((m) => (m.id === id ? { ...m, ...partial } : m)));
   }
 
+  // create author on the fly (if not found) - used by AuthorSelect component as well
+  async function createAuthorByName(name: string): Promise<UserItem | null> {
+    if (!name?.trim()) return null;
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const safeName = name.trim().toLowerCase().replace(/\s+/g, ".");
+    const genEmail = `${safeName}.${Date.now() % 10000}@local.internal`;
+    const genPassword = Math.random().toString(36).slice(2, 10);
+    try {
+      setLoading(true);
+      const res = await fetch(`${apiUrl}/api/users`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: genEmail,
+          password: genPassword,
+          role: "author",
+        }),
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(txt || `Create author failed (${res.status})`);
+      }
+      const created = await res.json();
+      const u: UserItem = {
+        _id: created._id || created.id,
+        name: created.name,
+        email: created.email,
+      };
+      setAuthorsList((p) => [u, ...p]);
+      return u;
+    } catch (err) {
+      console.error("create author failed", err);
+      alert("Failed to create author — check console for details.");
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // update (PUT)
   async function handleUpdate() {
     if (!id) return;
     const token =
       typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
     const first = menuPairs[0] || { menu: "", submenu: "" };
     const payload: any = {
       title,
@@ -299,7 +379,6 @@ export default function EditPostPage() {
       thumbnail,
       menu: first.menu || "",
       submenu: first.submenu || "",
-      // send author IDs (if available)
       authors: authorSelected ? [authorSelected._id] : [],
       shareUrl,
       featured,
@@ -309,7 +388,6 @@ export default function EditPostPage() {
       images,
       menus: menuPairs.map((m) => ({ menu: m.menu, submenu: m.submenu })),
     };
-
     try {
       setLoading(true);
       const res = await fetch(`${apiUrl}/api/blogs/${id}`, {
@@ -472,12 +550,12 @@ export default function EditPostPage() {
 
             <div className="flex flex-wrap gap-2 mt-2">
               {images.map((img, idx) => {
-                const id = getCloudinaryPublicId(img);
-                if (!id) return null;
+                const idc = getCloudinaryPublicId(img);
+                if (!idc) return null;
                 return (
                   <div key={idx} className="relative">
                     <CldImage
-                      src={id}
+                      src={idc}
                       width="120"
                       height="80"
                       crop="thumb"
@@ -505,12 +583,18 @@ export default function EditPostPage() {
             <Label>Author</Label>
             <div className="mt-2">
               <AuthorSelect
-                value={authorSelected}
-                onChange={(u: UserItem | null) => setAuthorSelected(u)}
+                value={authorSelected ?? undefined}
+                onChange={(u) => {
+                  // u will be UserItem | null | undefined depending on AuthorSelect impl
+                  setAuthorSelected(u ?? null);
+                }}
                 apiUrl={apiUrl}
+                placeholder="Type author name (select or create)"
+                createAuthorByName={createAuthorByName}
               />
             </div>
           </div>
+
           <div>
             <Label>Share URL</Label>
             <Input

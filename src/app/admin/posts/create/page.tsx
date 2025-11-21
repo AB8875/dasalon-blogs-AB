@@ -44,11 +44,23 @@ function cryptoRandomId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+// debounce helper
+function debounce<T extends (...args: any[]) => void>(fn: T, ms = 300) {
+  let t: any;
+  return (...args: Parameters<T>) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
+}
+
 export default function CreatePostPage() {
   const router = useRouter();
   const [menus, setMenus] = useState<MenuType[]>([]);
-  // Author handled via AuthorSelect (same behavior as edit page)
+  const [authorsList, setAuthorsList] = useState<UserItem[]>([]);
+  const [authorQuery, setAuthorQuery] = useState("");
+  // <-- changed to UserItem | null (matches AuthorSelect)
   const [authorSelected, setAuthorSelected] = useState<UserItem | null>(null);
+  const [authorSearching, setAuthorSearching] = useState(false);
 
   // fields
   const [title, setTitle] = useState("");
@@ -109,12 +121,80 @@ export default function CreatePostPage() {
       .catch(() => setMenus([]));
   }, []);
 
-  // create author on the fly: kept for API fallback if AuthorSelect doesn't create
-  // (AuthorSelect should ideally handle create; this is a safe helper)
+  // author search: debounced query to backend users list (client-side filter fallback)
+  useEffect(() => {
+    // immediate local filter if authorsList already loaded
+    if (!authorQuery) return;
+    debouncedSearch(authorQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authorQuery]);
+
+  const debouncedSearch = debounce((q: string) => {
+    doAuthorSearch(q);
+  }, 250);
+
+  async function doAuthorSearch(q: string) {
+    setAuthorSearching(true);
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    try {
+      // your backend `GET /api/users` returns { items: users } - we'll request and filter.
+      const res = await fetch(`${apiUrl}/api/users`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json();
+      let items: any[] = [];
+      if (Array.isArray(data?.items)) items = data.items;
+      else if (Array.isArray(data)) items = data;
+      // filter by name/email
+      const filtered = items
+        .map((u) => ({ _id: u._id || u.id, name: u.name, email: u.email }))
+        .filter(
+          (u) =>
+            (u.name || "").toLowerCase().includes(q.toLowerCase()) ||
+            (u.email || "").toLowerCase().includes(q.toLowerCase())
+        );
+      setAuthorsList(filtered);
+    } catch (err) {
+      // fallback: no authors
+      setAuthorsList([]);
+      console.error("authors search failed", err);
+    } finally {
+      setAuthorSearching(false);
+    }
+  }
+
+  // Full authors preload for the dropdown on mount (helps show options quickly)
+  useEffect(() => {
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    fetch(`${apiUrl}/api/users`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        const items = Array.isArray(data?.items)
+          ? data.items
+          : Array.isArray(data)
+          ? data
+          : [];
+        setAuthorsList(
+          items.map((u: any) => ({
+            _id: u._id || u.id,
+            name: u.name,
+            email: u.email,
+          }))
+        );
+      })
+      .catch(() => setAuthorsList([]));
+  }, []);
+
+  // create author on the fly (if not found). This will call backend POST /api/users
   async function createAuthorByName(name: string): Promise<UserItem | null> {
     if (!name?.trim()) return null;
     const token =
       typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    // generate fallback email & password (backend requires them)
     const safeName = name.trim().toLowerCase().replace(/\s+/g, ".");
     const genEmail = `${safeName}.${Date.now() % 10000}@local.internal`;
     const genPassword = Math.random().toString(36).slice(2, 10);
@@ -138,12 +218,14 @@ export default function CreatePostPage() {
         throw new Error(txt || `Create author failed (${res.status})`);
       }
       const created = await res.json();
+      // Post controller currently returns the created user doc
       const user = created as any;
       const u: UserItem = {
         _id: user._id || user.id,
         name: user.name,
         email: user.email,
       };
+      setAuthorsList((p) => [u, ...p]);
       return u;
     } catch (err) {
       console.error("create author failed", err);
@@ -243,9 +325,19 @@ export default function CreatePostPage() {
 
   // submit create
   const handlePost = async () => {
-    // If AuthorSelect didn't supply an author and user wants to create using typed name,
-    // the AuthorSelect component should ideally handle create. If not, you can call createAuthorByName here.
+    // ensure we have an author id (if a name was typed and not selected, create then use id)
     let authorId: string | null = authorSelected?._id ?? null;
+    if (!authorId && authorQuery.trim()) {
+      // try to find by exact match in authorsList
+      const found = authorsList.find(
+        (a) => a.name.toLowerCase() === authorQuery.trim().toLowerCase()
+      );
+      if (found) authorId = found._id;
+      else {
+        const created = await createAuthorByName(authorQuery.trim());
+        authorId = created ? created._id : null;
+      }
+    }
 
     const token =
       typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -430,10 +522,11 @@ export default function CreatePostPage() {
               <AuthorSelect
                 value={authorSelected}
                 onChange={(u) => {
-                  setAuthorSelected(u);
+                  // guard against undefined from AuthorSelect's signature
+                  setAuthorSelected(u ?? null);
                 }}
                 apiUrl={apiUrl}
-                placeholder="Select or search author"
+                placeholder="Type author name (select or create)"
               />
             </div>
           </div>
