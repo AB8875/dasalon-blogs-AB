@@ -1,7 +1,6 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { format } from "date-fns";
 import { Plus, Grid, List, Edit3, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CldImage } from "next-cloudinary";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -33,12 +31,6 @@ interface BlogPost {
   content?: any;
   images?: string[];
   createdAt?: string;
-}
-
-function getCloudinaryPublicId(url?: string) {
-  if (!url) return "";
-  const match = url.match(/\/upload\/(?:v\d+\/)?([^.]+)/);
-  return match && match[1] ? match[1] : "";
 }
 
 type UserItem = { _id: string; name: string; email?: string };
@@ -241,12 +233,9 @@ export default function AdminPostsPage() {
                   </div>
                 </div>
 
-                {post.thumbnail && getCloudinaryPublicId(post.thumbnail) ? (
-                  <CldImage
-                    src={getCloudinaryPublicId(post.thumbnail)}
-                    width="400"
-                    height="200"
-                    crop="auto"
+                {post.thumbnail ? (
+                  <img
+                    src={post.thumbnail || "/placeholder.svg"}
                     alt="Thumbnail"
                     className="w-full h-28 object-cover rounded-md mt-2"
                   />
@@ -330,7 +319,6 @@ export default function AdminPostsPage() {
                 </div>
 
                 <div className="border rounded p-3 mt-2 min-h-[200px] bg-white">
-                  {/* Render content as HTML string when available */}
                   {typeof previewPost.content === "string" ? (
                     <div
                       className="prose max-w-none dark:prose-invert"
@@ -350,12 +338,9 @@ export default function AdminPostsPage() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {previewPost.images.map((img, idx) =>
                           img ? (
-                            <CldImage
+                            <img
                               key={idx}
-                              src={getCloudinaryPublicId(img)}
-                              width="300"
-                              height="300"
-                              crop="thumb"
+                              src={img || "/placeholder.svg"}
                               alt={`img-${idx}`}
                               className="rounded-md object-cover"
                             />
@@ -368,11 +353,8 @@ export default function AdminPostsPage() {
                 {previewPost.thumbnail && (
                   <div>
                     <h3 className="font-semibold mb-2">Thumbnail</h3>
-                    <CldImage
-                      src={getCloudinaryPublicId(previewPost.thumbnail)}
-                      width="500"
-                      height="300"
-                      crop="auto"
+                    <img
+                      src={previewPost.thumbnail || "/placeholder.svg"}
                       alt="Thumbnail"
                       className="w-full h-40 object-cover rounded-md border"
                     />

@@ -1,7 +1,7 @@
-// src/components/admin/RichTextEditor.tsx
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -14,16 +14,12 @@ interface RichTextEditorProps {
   content?: string; // HTML string
   onChange?: (contentHtml: string) => void;
   editable?: boolean;
-  cloudinaryName?: string;
-  uploadPreset?: string;
 }
 
 export default function RichTextEditor({
   content = "",
   onChange,
   editable = true,
-  cloudinaryName,
-  uploadPreset,
 }: RichTextEditorProps) {
   const [isMounted, setIsMounted] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -35,14 +31,6 @@ export default function RichTextEditor({
   const [showImageSettings, setShowImageSettings] = useState(false);
   const [imgWidth, setImgWidth] = useState<string>("");
   const [imgHeight, setImgHeight] = useState<string>("");
-
-  // Cloudinary config: prefer env vars
-  const CLOUD_NAME =
-    process.env.NEXT_PUBLIC_CLOUDINARY_NAME || cloudinaryName || "ddzhzrlcb";
-  const UPLOAD_PRESET =
-    process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ||
-    uploadPreset ||
-    "unsigned_preset";
 
   useEffect(() => setIsMounted(true), []);
 
@@ -67,7 +55,7 @@ export default function RichTextEditor({
     ],
     content,
     editable,
-    immediatelyRender: false, // avoid SSR hydration mismatch
+    immediatelyRender: false,
     onUpdate: ({ editor }) => {
       onChange?.(editor.getHTML());
     },
@@ -79,7 +67,6 @@ export default function RichTextEditor({
     },
   });
 
-  // sync external content -> editor (no immediate update emission)
   useEffect(() => {
     if (!editor) return;
     const current = editor.getHTML();
@@ -88,13 +75,11 @@ export default function RichTextEditor({
     }
   }, [content, editor]);
 
-  // helper: detect if selection is image node
   const isImageActive = () => {
     if (!editor) return false;
     return editor.isActive("image");
   };
 
-  // get current selected image attributes (if selection is image)
   const getSelectedImageAttrs = () => {
     if (!editor) return null;
     try {
@@ -105,35 +90,35 @@ export default function RichTextEditor({
     }
   };
 
-  // Cloudinary upload
-  async function uploadToCloudinary(file: File): Promise<string> {
-    const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("upload_preset", UPLOAD_PRESET);
+  async function uploadToS3(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("folder", "content");
 
-    const res = await fetch(url, { method: "POST", body: fd });
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
     if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      throw new Error(`Upload failed: ${res.status} ${txt}`);
+      const err = await res.text().catch(() => "Unknown error");
+      throw new Error(`Upload failed: ${res.status} ${err}`);
     }
+
     const json = await res.json();
     if (!json.secure_url) {
-      throw new Error("Cloudinary response missing secure_url");
+      throw new Error("Upload response missing secure_url");
     }
-    return json.secure_url as string;
+    return json.secure_url;
   }
 
-  // file input handler: upload & insert image
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !editor) return;
     try {
-      const uploadedUrl = await uploadToCloudinary(file);
-      // insert image (cast to any; practical, minimal)
+      const uploadedUrl = await uploadToS3(file);
       (editor as any).chain().focus().setImage({ src: uploadedUrl }).run();
       if (fileInputRef.current) fileInputRef.current.value = "";
-      // after insertion, open image settings to allow sizing
       setTimeout(() => {
         setShowImageSettings(true);
         const attrs = getSelectedImageAttrs();
@@ -146,10 +131,8 @@ export default function RichTextEditor({
     }
   };
 
-  // Link handling
   const openLinkInput = () => {
     if (!editor) return;
-    // if selection already has a link, prefill
     const attrs = (editor as any).getAttributes?.("link");
     setLinkUrl(attrs?.href ?? "");
     setShowLinkInput(true);
@@ -162,7 +145,6 @@ export default function RichTextEditor({
     if (!url) {
       (editor as any).chain().focus().unsetLink().run();
     } else {
-      // ensure protocol
       const normalized = url.startsWith("http") ? url : `https://${url}`;
       (editor as any)
         .chain()
@@ -180,8 +162,6 @@ export default function RichTextEditor({
     setShowLinkInput(false);
   };
 
-  // Image sizing: update attributes for the selected image
-  // helper: normalize width/height input (if numeric -> px)
   function normalizeSize(val?: string) {
     if (!val) return "";
     const v = val.trim();
@@ -193,9 +173,7 @@ export default function RichTextEditor({
     ) {
       return v;
     }
-    // if it's a plain number, append px
     if (/^\d+$/.test(v)) return `${v}px`;
-    // otherwise return as-is (best-effort)
     return v;
   }
 
@@ -207,13 +185,10 @@ export default function RichTextEditor({
     const w = normalizeSize(wRaw);
     const h = normalizeSize(hRaw);
 
-    // Build inline style string. If both empty, remove style attribute.
     let style = "";
     if (w) style += `width: ${w};`;
     if (h) style += `height: ${h};`;
 
-    // Important: update the image node with a style attribute so CSS applies immediately.
-    // Use any-cast for TipTap chain typings
     if (style) {
       (editor as any)
         .chain()
@@ -221,8 +196,6 @@ export default function RichTextEditor({
         .updateAttributes("image", { style })
         .run();
     } else {
-      // Remove the style attribute (reset to default responsive behavior)
-      // We can set style to null or empty string; using updateAttributes with style: null removes attribute
       (editor as any)
         .chain()
         .focus()
@@ -241,15 +214,12 @@ export default function RichTextEditor({
     );
   }
 
-  // inline CSS for link styling (blue + underline) and image responsiveness
-  // You can move this into global CSS if preferred
   const inlineStyles = (
     <style>{`
       .rte-content a { color: #2563eb; text-decoration: underline; }
       .rte-content a:hover { opacity: 0.85; }
       .rte-content img { max-width: 100%; height: auto; }
-      /* allow explicit width/height (if set as attributes) */
-      .rte-content img[width] { width: auto; } /* width attr handled inline via node attr */
+      .rte-content img[width] { width: auto; }
     `}</style>
   );
 
@@ -361,7 +331,7 @@ export default function RichTextEditor({
           </label>
         </div>
 
-        {/* Image settings: show when image node active */}
+        {/* Image settings */}
         {isImageActive() && (
           <div className="flex items-center relative">
             <Button

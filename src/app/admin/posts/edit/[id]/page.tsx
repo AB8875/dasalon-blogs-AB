@@ -1,5 +1,6 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useParams } from "next/navigation";
 import { ImagePlus } from "lucide-react";
@@ -16,8 +17,6 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { CldImage } from "next-cloudinary";
-import { slugify } from "@/utils/slugify";
 
 const RichTextEditor = dynamic(
   () => import("@/components/admin/RichTextEditor"),
@@ -72,10 +71,6 @@ export default function EditPostPage() {
   >([]);
   const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
   const postImagesInputRef = useRef<HTMLInputElement | null>(null);
-
-  // cloudinary same config
-  const CLOUD_NAME = "ddzhzrlcb";
-  const UPLOAD_PRESET = "unsigned_preset";
 
   useEffect(() => {
     if (!id) return;
@@ -237,23 +232,25 @@ export default function EditPostPage() {
   }
 
   // upload helpers
-  async function uploadToCloudinary(file: File): Promise<string> {
-    const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("upload_preset", UPLOAD_PRESET);
-    const res = await fetch(url, { method: "POST", body: fd });
+  async function uploadToS3(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("folder", "posts");
+
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
     if (!res.ok) {
-      let err = "";
-      try {
-        const j = await res.json();
-        err = j.error?.message || JSON.stringify(j);
-      } catch {}
-      throw new Error(`Cloudinary upload failed: ${res.status} ${err}`);
+      const err = await res.text().catch(() => "Unknown error");
+      throw new Error(`Upload failed: ${res.status} ${err}`);
     }
+
     const json = await res.json();
-    if (!json.secure_url)
-      throw new Error("Cloudinary response missing secure_url");
+    if (!json.secure_url) {
+      throw new Error("Upload response missing secure_url");
+    }
     return json.secure_url;
   }
 
@@ -264,7 +261,7 @@ export default function EditPostPage() {
     if (!file) return;
     try {
       setLoading(true);
-      const url = await uploadToCloudinary(file);
+      const url = await uploadToS3(file);
       setThumbnail(url);
     } catch (err) {
       console.error(err);
@@ -280,7 +277,7 @@ export default function EditPostPage() {
     try {
       setLoading(true);
       for (const f of files) {
-        const url = await uploadToCloudinary(f);
+        const url = await uploadToS3(f);
         setImages((p) => [...p, url]);
       }
     } catch (err) {
@@ -511,16 +508,13 @@ export default function EditPostPage() {
             </div>
 
             <Input
-              placeholder="Thumbnail URL"
+              placeholder="Thumbnail URL (or upload)"
               value={thumbnail}
               onChange={(e) => setThumbnail(e.target.value)}
             />
-            {thumbnailId ? (
-              <CldImage
-                src={thumbnailId}
-                width="600"
-                height="350"
-                crop="auto"
+            {thumbnail ? (
+              <img
+                src={thumbnail || "/placeholder.svg"}
                 alt="Thumbnail"
                 className="w-full h-40 object-cover rounded-md mt-2 border"
               />
@@ -549,30 +543,23 @@ export default function EditPostPage() {
             </div>
 
             <div className="flex flex-wrap gap-2 mt-2">
-              {images.map((img, idx) => {
-                const idc = getCloudinaryPublicId(img);
-                if (!idc) return null;
-                return (
-                  <div key={idx} className="relative">
-                    <CldImage
-                      src={idc}
-                      width="120"
-                      height="80"
-                      crop="thumb"
-                      alt={`img-${idx}`}
-                      className="w-28 h-20 object-cover rounded-md border"
-                    />
-                    <button
-                      onClick={() =>
-                        setImages((p) => p.filter((_, i) => i !== idx))
-                      }
-                      className="absolute -top-1 -right-1 bg-white rounded-full px-1 text-sm"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                );
-              })}
+              {images.map((img, idx) => (
+                <div key={idx} className="relative">
+                  <img
+                    src={img || "/placeholder.svg"}
+                    alt={`img-${idx}`}
+                    className="w-28 h-20 object-cover rounded-md border"
+                  />
+                  <button
+                    onClick={() =>
+                      setImages((p) => p.filter((_, i) => i !== idx))
+                    }
+                    className="absolute -top-1 -right-1 bg-white rounded-full px-1 text-sm"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         </div>
