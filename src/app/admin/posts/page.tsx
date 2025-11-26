@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Grid, List, Edit3, Trash2 } from "lucide-react";
+import { Plus, Grid, List, Edit3, Trash2, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,8 +22,8 @@ interface BlogPost {
   thumbnail?: string;
   menu?: string;
   submenu?: string;
-  authors?: string[]; // ids
-  author?: string; // resolved name (for display)
+  authors?: string[];
+  author?: string;
   shareUrl?: string;
   featured?: boolean;
   status?: string;
@@ -47,7 +47,6 @@ export default function AdminPostsPage() {
     loadPosts();
   }, []);
 
-  // load posts and users, then map author ids -> names
   async function loadPosts() {
     setLoading(true);
     try {
@@ -60,7 +59,6 @@ export default function AdminPostsPage() {
         throw new Error(`Failed to fetch posts (${postsRes.status})`);
       const postsData = await postsRes.json();
 
-      // handle users response shape { items: [...] } or [...]
       let usersRaw: any[] = [];
       try {
         const ud = await usersRes.json();
@@ -84,7 +82,6 @@ export default function AdminPostsPage() {
 
       const normalized = Array.isArray(postsData)
         ? postsData.map((p: any) => {
-            // determine authors array (id strings)
             const authorIds: string[] =
               Array.isArray(p.authors) && p.authors.length > 0
                 ? p.authors
@@ -92,7 +89,6 @@ export default function AdminPostsPage() {
                 ? [p.author]
                 : [];
 
-            // build resolved author display: join names if possible, fallback to id
             const resolvedName =
               authorIds
                 .map((aid) => map[aid]?.name || aid)
@@ -129,7 +125,6 @@ export default function AdminPostsPage() {
         const txt = await res.text().catch(() => "");
         throw new Error(txt || `Delete failed (${res.status})`);
       }
-      // remove locally
       setPosts((p) => p.filter((x) => x._id !== id));
     } catch (err) {
       console.error("delete error:", err);
@@ -138,7 +133,6 @@ export default function AdminPostsPage() {
   };
 
   const openPreview = (post: BlogPost) => {
-    // ensure author resolution up-to-date (in case map changed)
     const resolved = { ...post };
     if (resolved.authors && resolved.authors.length > 0) {
       resolved.author = resolved.authors
@@ -150,17 +144,22 @@ export default function AdminPostsPage() {
   };
 
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Your Posts</h1>
-        <div className="flex gap-2">
-          <Link href="/admin/posts/create">
-            <Button className="flex items-center gap-1">
-              <Plus /> Create Post
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      {/* Header with Title and Buttons - Made responsive */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <h1 className="text-2xl md:text-3xl font-bold">Your Posts</h1>
+        <div className="flex gap-2 flex-wrap">
+          <Link href="/admin/posts/create" className="flex-1 sm:flex-none">
+            <Button className="w-full sm:w-auto flex items-center justify-center gap-1">
+              <Plus size={18} /> Create Post
             </Button>
           </Link>
-          <Button variant="outline" onClick={() => setIsGridView((s) => !s)}>
-            {isGridView ? <List /> : <Grid />}
+          <Button
+            variant="outline"
+            onClick={() => setIsGridView((s) => !s)}
+            className="sm:w-auto"
+          >
+            {isGridView ? <List size={18} /> : <Grid size={18} />}
           </Button>
         </div>
       </div>
@@ -170,28 +169,120 @@ export default function AdminPostsPage() {
       ) : posts.length === 0 ? (
         <p className="text-gray-500">No posts created yet.</p>
       ) : isGridView ? (
+        // Grid View - Improved responsiveness and button layout
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {posts.map((post) => (
             <Card
               key={post._id}
-              className="cursor-pointer hover:shadow-md relative"
+              className="cursor-pointer hover:shadow-md transition-shadow flex flex-col"
             >
-              <CardContent className="space-y-2">
-                <div className="flex justify-between">
-                  <div>
-                    <p className="font-semibold">{post.title}</p>
-                    <p className="text-sm text-gray-500">
+              <CardContent className="space-y-3 flex-1 flex flex-col">
+                <div className="flex-1">
+                  <p className="font-semibold line-clamp-2 text-sm md:text-base">
+                    {post.title}
+                  </p>
+                  <p className="text-xs md:text-sm text-gray-500 line-clamp-1">
+                    {post.menu}
+                    {post.submenu ? ` > ${post.submenu}` : ""}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {post.createdAt ? formatDate(post.createdAt) : ""} •{" "}
+                    {post.status}
+                  </p>
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {Array.isArray(post.tags) &&
+                      post.tags.slice(0, 2).map((tag) => (
+                        <Badge
+                          key={tag}
+                          variant="secondary"
+                          className="text-xs"
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
+                    {post.featured && (
+                      <Badge variant="default" className="text-xs">
+                        Featured
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {post.thumbnail && (
+                  <img
+                    src={post.thumbnail || "/placeholder.svg"}
+                    alt="Thumbnail"
+                    className="w-full h-24 md:h-28 object-cover rounded-md"
+                  />
+                )}
+
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
+                  <Link
+                    href={`/admin/posts/edit/${post._id}`}
+                    className="flex-1 sm:flex-none"
+                  >
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="w-full sm:w-auto"
+                      title="Edit"
+                    >
+                      <Edit3 size={16} />
+                      <span className="hidden sm:inline ml-1">Edit</span>
+                    </Button>
+                  </Link>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 sm:flex-none bg-transparent"
+                    title="Preview"
+                    onClick={() => openPreview(post)}
+                  >
+                    <Eye size={16} />
+                    <span className="hidden sm:inline ml-1">Preview</span>
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="flex-1 sm:flex-none"
+                    title="Delete"
+                    onClick={() => handleDelete(post._id)}
+                  >
+                    <Trash2 size={16} />
+                    <span className="hidden sm:inline ml-1">Delete</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        // List View - Improved responsiveness for buttons
+        <div className="flex flex-col gap-3">
+          {posts.map((post) => (
+            <Card
+              key={post._id}
+              className="cursor-pointer hover:shadow-md transition-shadow"
+            >
+              <CardContent className="space-y-3 md:space-y-0">
+                <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold line-clamp-1 text-sm md:text-base">
+                      {post.title}
+                    </p>
+                    <p className="text-xs md:text-sm text-gray-500 line-clamp-1">
                       {post.menu}
                       {post.submenu ? ` > ${post.submenu}` : ""}
                     </p>
-                    <p className="text-xs text-gray-400">
-                      {post.createdAt ? formatDate(post.createdAt) : ""}
-                      {"  "}
+                    <p className="text-xs text-gray-400 mt-1">
+                      {post.createdAt ? formatDate(post.createdAt) : ""} •{" "}
                       {post.status}
                     </p>
-                    <div className="flex flex-wrap gap-1 mt-1">
+                    <div className="flex flex-wrap gap-1 mt-2">
                       {Array.isArray(post.tags) &&
-                        post.tags.map((tag) => (
+                        post.tags.slice(0, 3).map((tag) => (
                           <Badge
                             key={tag}
                             variant="secondary"
@@ -200,83 +291,45 @@ export default function AdminPostsPage() {
                             {tag}
                           </Badge>
                         ))}
-                      {post.featured && (
-                        <Badge variant="default">Featured</Badge>
-                      )}
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <div className="flex gap-1">
-                      <Link href={`/admin/posts/edit/${post._id}`}>
-                        <Button size="sm" variant="ghost" title="Edit">
-                          <Edit3 size={14} />
-                        </Button>
-                      </Link>
 
+                  <div className="flex flex-wrap gap-2 md:gap-1 md:flex-nowrap md:ml-auto">
+                    <Link
+                      href={`/admin/posts/edit/${post._id}`}
+                      className="flex-1 md:flex-none"
+                    >
                       <Button
                         size="sm"
                         variant="ghost"
-                        title="Preview"
-                        onClick={() => openPreview(post)}
+                        className="w-full md:w-auto"
+                        title="Edit"
                       >
-                        Preview
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        title="Delete"
-                        onClick={() => handleDelete(post._id)}
-                      >
-                        <Trash2 size={14} />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                {post.thumbnail ? (
-                  <img
-                    src={post.thumbnail || "/placeholder.svg"}
-                    alt="Thumbnail"
-                    className="w-full h-28 object-cover rounded-md mt-2"
-                  />
-                ) : null}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {posts.map((post) => (
-            <Card
-              key={post._id}
-              className="cursor-pointer hover:shadow-md relative"
-            >
-              <CardContent className="space-y-1">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-semibold">{post.title}</p>
-                    <p className="text-sm text-gray-500">
-                      {post.menu}
-                      {post.submenu ? ` > ${post.submenu}` : ""}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {post.createdAt ? formatDate(post.createdAt) : ""} {"  "}{" "}
-                      {post.status}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Link href={`/admin/posts/edit/${post._id}`}>
-                      <Button size="sm" variant="ghost" title="Edit">
-                        <Edit3 size={14} />
+                        <Edit3 size={16} />
+                        <span className="hidden md:inline ml-1">Edit</span>
                       </Button>
                     </Link>
 
                     <Button
                       size="sm"
+                      variant="outline"
+                      className="flex-1 md:flex-none bg-transparent"
+                      title="Preview"
+                      onClick={() => openPreview(post)}
+                    >
+                      <Eye size={16} />
+                      <span className="hidden md:inline ml-1">Preview</span>
+                    </Button>
+
+                    <Button
+                      size="sm"
                       variant="destructive"
+                      className="flex-1 md:flex-none"
+                      title="Delete"
                       onClick={() => handleDelete(post._id)}
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={16} />
+                      <span className="hidden md:inline ml-1">Delete</span>
                     </Button>
                   </div>
                 </div>
@@ -286,30 +339,34 @@ export default function AdminPostsPage() {
         </div>
       )}
 
-      {/* Preview Dialog */}
+      {/* Preview Dialog - Made responsive for mobile */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="w-full max-w-[95vw] sm:max-w-[90vw] md:max-w-[750px] max-h-[90vh] p-0 overflow-hidden flex flex-col">
-          <DialogHeader className="px-6 py-4 border-b shrink-0">
-            <DialogTitle>Post Preview</DialogTitle>
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-[90vw] md:max-w-[750px] max-h-[90vh] p-4 sm:p-6 overflow-hidden flex flex-col">
+          <DialogHeader className="px-0 py-0 border-b pb-4 shrink-0">
+            <DialogTitle className="text-lg md:text-xl">
+              Post Preview
+            </DialogTitle>
           </DialogHeader>
-          <div className="overflow-y-auto flex-1 px-6 py-4">
+          <div className="overflow-y-auto flex-1 py-4 px-0">
             {previewPost ? (
               <div className="space-y-4">
-                <h2 className="text-xl font-bold">{previewPost.title}</h2>
-                <p className="text-sm text-gray-500">
+                <h2 className="text-lg md:text-xl font-bold line-clamp-2">
+                  {previewPost.title}
+                </h2>
+                <p className="text-xs md:text-sm text-gray-500">
                   {previewPost.menu}
                   {previewPost.submenu ? ` > ${previewPost.submenu}` : ""}{" "}
                   {previewPost.createdAt &&
-                    ` | ${formatDate(previewPost.createdAt)}`}{" "}
+                    `| ${formatDate(previewPost.createdAt)}`}{" "}
                   | {previewPost.status}
                 </p>
-                <p className="text-gray-700">
+                <p className="text-sm md:text-base text-gray-700">
                   <strong>Author:</strong> {previewPost.author || "—"}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {Array.isArray(previewPost.tags) &&
                     previewPost.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary">
+                      <Badge key={tag} variant="secondary" className="text-xs">
                         {tag}
                       </Badge>
                     ))}
@@ -318,14 +375,14 @@ export default function AdminPostsPage() {
                   )}
                 </div>
 
-                <div className="border rounded p-3 mt-2 min-h-[200px] bg-white">
+                <div className="border rounded p-3 mt-2 min-h-[200px] bg-white text-sm">
                   {typeof previewPost.content === "string" ? (
                     <div
-                      className="prose max-w-none dark:prose-invert"
+                      className="prose prose-sm md:prose max-w-none dark:prose-invert"
                       dangerouslySetInnerHTML={{ __html: previewPost.content }}
                     />
                   ) : (
-                    <pre className="text-sm text-muted-foreground">
+                    <pre className="text-xs md:text-sm text-muted-foreground">
                       Structured content preview
                     </pre>
                   )}
@@ -334,7 +391,9 @@ export default function AdminPostsPage() {
                 {Array.isArray(previewPost.images) &&
                   previewPost.images.length > 0 && (
                     <div>
-                      <h3 className="font-semibold mb-2">Images</h3>
+                      <h3 className="font-semibold mb-2 text-sm md:text-base">
+                        Images
+                      </h3>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {previewPost.images.map((img, idx) =>
                           img ? (
@@ -342,7 +401,7 @@ export default function AdminPostsPage() {
                               key={idx}
                               src={img || "/placeholder.svg"}
                               alt={`img-${idx}`}
-                              className="rounded-md object-cover"
+                              className="rounded-md object-cover h-24 md:h-28"
                             />
                           ) : null
                         )}
@@ -352,11 +411,13 @@ export default function AdminPostsPage() {
 
                 {previewPost.thumbnail && (
                   <div>
-                    <h3 className="font-semibold mb-2">Thumbnail</h3>
+                    <h3 className="font-semibold mb-2 text-sm md:text-base">
+                      Thumbnail
+                    </h3>
                     <img
                       src={previewPost.thumbnail || "/placeholder.svg"}
                       alt="Thumbnail"
-                      className="w-full h-40 object-cover rounded-md border"
+                      className="w-full h-32 md:h-40 object-cover rounded-md border"
                     />
                   </div>
                 )}
@@ -365,16 +426,14 @@ export default function AdminPostsPage() {
               <p>Loading preview…</p>
             )}
           </div>
-          <div className="px-6 py-4 border-t bg-gray-50 dark:bg-gray-900 shrink-0">
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPreviewOpen(false)}
-              >
-                Close
-              </Button>
-            </div>
+          <div className="border-t bg-gray-50 dark:bg-gray-900 shrink-0 py-3 px-0 -mx-4 sm:-mx-6 px-4 sm:px-6 flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPreviewOpen(false)}
+            >
+              Close
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

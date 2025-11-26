@@ -13,13 +13,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-interface User {
-  name?: string;
-  full_name?: string;
-  email?: string;
-  avatar_url?: string;
-}
-
 interface SidebarProps {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
@@ -28,7 +21,12 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, setIsOpen, onMenuClick }: SidebarProps) {
   const pathname = usePathname();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<{
+    name?: string;
+    full_name?: string;
+    email?: string;
+    avatar_url?: string;
+  } | null>(null);
 
   // track whether viewport is mobile to avoid reading window during SSR
   const [isMobile, setIsMobile] = useState(false);
@@ -72,10 +70,17 @@ export function Sidebar({ isOpen, setIsOpen, onMenuClick }: SidebarProps) {
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Dasalon Blogs</h1>
-            <p className="text-sm text-gray-500 mt-1">Admin Panel</p>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="p-1.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg">
+                <span className="text-white font-bold text-sm">DA</span>
+              </div>
+              <h1 className="text-xl font-bold text-gray-900">DaSalon</h1>
+            </div>
+            <p className="text-xs text-gray-500 font-medium ml-0">
+              Blog Admin Panel
+            </p>
           </div>
           <button
             onClick={() => setIsOpen(false)}
@@ -121,7 +126,7 @@ export function Sidebar({ isOpen, setIsOpen, onMenuClick }: SidebarProps) {
               <button className="flex items-center gap-3 w-full text-left cursor-pointer">
                 <Avatar className="w-10 h-10">
                   {user?.avatar_url ? (
-                    <AvatarImage src={user.avatar_url} />
+                    <AvatarImage src={user.avatar_url || "/placeholder.svg"} />
                   ) : (
                     <AvatarFallback>
                       {(user?.full_name || user?.name || "Admin")
@@ -165,13 +170,13 @@ export function Sidebar({ isOpen, setIsOpen, onMenuClick }: SidebarProps) {
                 </Link>
               </DropdownMenuItem>
 
-              {/* <DropdownMenuItem
+              <DropdownMenuItem
                 onSelect={handleSignOut}
                 className="flex items-center gap-2"
               >
                 <LogOut className="w-4 h-4" />
                 <span>Sign out</span>
-              </DropdownMenuItem> */}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
