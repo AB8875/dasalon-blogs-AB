@@ -160,13 +160,12 @@ export function Navbar({
           {/* NOTE: Removed desktop logo (lg and up).
               Only mobile logo will display (below). This ensures only one logo appears before 1024px and none after 1024px. */}
           {/* Mobile logo - compact (visible for <1024px only) */}
-          <div className="flex lg:hidden p-1 bg-gradient-to-br from-purple-500 to-pink-500 rounded-md">
-            <Image
-              src="/svg/da-Salon-logo.svg"
+          {/* Mobile logo - visible for <1024px only */}
+          <div className="lg:hidden">
+            <img
+              src="/logo-mobile.png"
               alt="DaSalon"
-              width={32}
-              height={32}
-              className="rounded-sm"
+              className="h-10 w-auto mix-blend-multiply"
             />
           </div>
         </div>

@@ -1,8 +1,25 @@
+// NEW: Complete Author type with all fields from Strapi
+export type Author = {
+  _id: string;
+  name: string;
+  email?: string;
+  image?: string;
+  description?: string;
+  education?: string;
+  address?: string;
+  instagram?: string;
+  linkedin?: string;
+  index?: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type ISubmenu = {
   _id: string;
   name: string;
   slug: string;
   description?: string;
+  showOnHomePage?: boolean;  // NEW
   status: boolean;
   parent_id: string;
   createdAt: string;
@@ -14,6 +31,7 @@ export type IMenuItem = {
   name: string;
   slug: string;
   description?: string;
+  index?: number;  // NEW
   status: boolean;
   createdAt: string;
   updatedAt: string;
@@ -96,9 +114,7 @@ export type TBlogItem = BaseBlogItem;
 export type BlogItem = BaseBlogItem & {
   title?: string;
   paraOneClass?: string;
-  authors?: {
-    name: string;
-  }[];
+  authors?: Author[];  // UPDATED: Use full Author type
   paraTwoClass?: string;
 };
 export type IBlogItem = {
@@ -190,7 +206,13 @@ export type BlogPost = {
     };
   };
   categories?: { name: string }[];
-  authors?: { name: string }[];
+  authors?: Author[];  // UPDATED: Use full Author type
+  menus?: string[];  // NEW: Array of menu slugs
+  submenus?: string[];  // NEW: Array of submenu slugs
+  tags?: string[];  // NEW: Array of tags
+  featured?: boolean;  // NEW
+  views?: number;  // NEW
+  index?: number;  // NEW: Display order
   cardClass?: string;
   imgClass?: string;
   typeClass?: string;

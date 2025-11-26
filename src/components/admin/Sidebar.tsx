@@ -71,16 +71,26 @@ export function Sidebar({ isOpen, setIsOpen, onMenuClick }: SidebarProps) {
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <div className="p-1.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg">
-                <span className="text-white font-bold text-sm">DA</span>
+          <div className="flex flex-col justify-center">
+            {/* Mobile: Crop bottom tagline. Desktop: Show full logo. */}
+            <div className="relative">
+              {/* Mobile View: Fixed height + overflow hidden to crop tagline */}
+              <div className="lg:hidden h-[42px] overflow-hidden">
+                <img
+                  src="/logo-full.png"
+                  alt="DaSalon"
+                  className="w-40 max-w-none object-top mix-blend-multiply"
+                />
               </div>
-              <h1 className="text-xl font-bold text-gray-900">DaSalon</h1>
+              {/* Desktop View: Full logo */}
+              <div className="hidden lg:block">
+                <img
+                  src="/logo-full.png"
+                  alt="DaSalon"
+                  className="w-40 h-auto mix-blend-multiply"
+                />
+              </div>
             </div>
-            <p className="text-xs text-gray-500 font-medium ml-0">
-              Blog Admin Panel
-            </p>
           </div>
           <button
             onClick={() => setIsOpen(false)}

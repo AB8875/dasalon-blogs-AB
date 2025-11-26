@@ -3,7 +3,7 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { Plus, ImagePlus } from "lucide-react";
+import { Plus, ImagePlus, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -66,13 +66,15 @@ export default function CreatePostPage() {
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [thumbnail, setThumbnail] = useState("");
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [shareUrl, setShareUrl] = useState("");
   const [featured, setFeatured] = useState(false);
   const [status, setStatus] = useState("published");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [content, setContent] = useState<any>("");
-  const [images, setImages] = useState<string[]>([]);
+  // Store objects with optional file for pending uploads
+  const [images, setImages] = useState<Array<{ id: string; url: string; file?: File }>>([]);
   const [menuPairs, setMenuPairs] = useState<
     Array<{ id: string; menu: string; submenu: string }>
   >([{ id: cryptoRandomId(), menu: "", submenu: "" }]);
@@ -80,6 +82,8 @@ export default function CreatePostPage() {
   const [isShareUrlManuallyEdited, setIsShareUrlManuallyEdited] =
     useState(false);
 
+  const [isDragging, setIsDragging] = useState(false);
+  const [isDraggingImages, setIsDraggingImages] = useState(false);
   const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
   const postImagesInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -261,33 +265,69 @@ export default function CreatePostPage() {
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    try {
-      setLoading(true);
-      const url = await uploadToS3(file);
-      setThumbnail(url);
-    } catch (err) {
-      console.error(err);
-      alert("Thumbnail upload failed");
-    } finally {
-      setLoading(false);
+    await processThumbnailFile(file);
+  };
+
+  const processThumbnailFile = async (file: File) => {
+    // Create local preview
+    const url = URL.createObjectURL(file);
+    setThumbnail(url);
+    setThumbnailFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith("image/")) {
+      await processThumbnailFile(file);
+    }
+  };
+
+  const handleDragOverImages = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingImages(true);
+  };
+
+  const handleDragLeaveImages = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingImages(false);
+  };
+
+  const handleDropImages = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingImages(false);
+    const files = Array.from(e.dataTransfer.files).filter((f) =>
+      f.type.startsWith("image/")
+    );
+    if (files.length > 0) {
+      await processImageFiles(files);
     }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     const files = Array.from(e.target.files);
-    try {
-      setLoading(true);
-      for (const f of files) {
-        const url = await uploadToS3(f);
-        setImages((p) => [...p, url]);
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Image upload failed");
-    } finally {
-      setLoading(false);
-    }
+    await processImageFiles(files);
+  };
+
+  const processImageFiles = async (files: File[]) => {
+    const newImages = files.map((file) => ({
+      id: cryptoRandomId(),
+      url: URL.createObjectURL(file),
+      file,
+    }));
+    setImages((p) => [...p, ...newImages]);
   };
 
   // tags
@@ -324,42 +364,59 @@ export default function CreatePostPage() {
 
   // submit create
   const handlePost = async () => {
-    // ensure we have an author id (if a name was typed and not selected, create then use id)
-    let authorId: string | null = authorSelected?._id ?? null;
-    if (!authorId && authorQuery.trim()) {
-      // try to find by exact match in authorsList
-      const found = authorsList.find(
-        (a) => a.name.toLowerCase() === authorQuery.trim().toLowerCase()
-      );
-      if (found) authorId = found._id;
-      else {
-        const created = await createAuthorByName(authorQuery.trim());
-        authorId = created ? created._id : null;
-      }
-    }
-
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    const first = menuPairs[0] || { menu: "", submenu: "" };
-    const payload: any = {
-      title,
-      slug,
-      description,
-      thumbnail,
-      menu: first.menu || "",
-      submenu: first.submenu || "",
-      authors: authorId ? [authorId] : [], // send IDs
-      shareUrl,
-      featured,
-      status,
-      tags,
-      content,
-      images,
-      menus: menuPairs.map((m) => ({ menu: m.menu, submenu: m.submenu })),
-    };
-
+    setLoading(true);
     try {
-      setLoading(true);
+      // 1. Upload thumbnail if pending
+      let finalThumbnail = thumbnail;
+      if (thumbnailFile) {
+        finalThumbnail = await uploadToS3(thumbnailFile);
+      }
+
+      // 2. Upload images if pending
+      const finalImages: string[] = [];
+      for (const img of images) {
+        if (img.file) {
+          const url = await uploadToS3(img.file);
+          finalImages.push(url);
+        } else {
+          finalImages.push(img.url);
+        }
+      }
+
+      // ensure we have an author id (if a name was typed and not selected, create then use id)
+      let authorId: string | null = authorSelected?._id ?? null;
+      if (!authorId && authorQuery.trim()) {
+        // try to find by exact match in authorsList
+        const found = authorsList.find(
+          (a) => a.name.toLowerCase() === authorQuery.trim().toLowerCase()
+        );
+        if (found) authorId = found._id;
+        else {
+          const created = await createAuthorByName(authorQuery.trim());
+          authorId = created ? created._id : null;
+        }
+      }
+
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const first = menuPairs[0] || { menu: "", submenu: "" };
+      const payload: any = {
+        title,
+        slug,
+        description,
+        thumbnail: finalThumbnail,
+        menu: first.menu || "",
+        submenu: first.submenu || "",
+        authors: authorId ? [authorId] : [], // send IDs
+        shareUrl,
+        featured,
+        status,
+        tags,
+        content,
+        images: finalImages,
+        menus: menuPairs.map((m) => ({ menu: m.menu, submenu: m.submenu })),
+      };
+
       const res = await fetch(`${apiUrl}/api/blogs`, {
         method: "POST",
         headers: {
@@ -426,78 +483,135 @@ export default function CreatePostPage() {
         {/* Thumbnail / images side-by-side */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <div className="flex items-center gap-2">
-              <Label>Thumbnail</Label>
-              <button
-                type="button"
-                onClick={() => thumbnailInputRef.current?.click()}
-                title="Upload thumbnail"
-                className="ml-2"
-              >
-                <ImagePlus />
-              </button>
+            <Label className="mb-2 block">Thumbnail</Label>
+            <div
+              className={`relative border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center transition-colors cursor-pointer min-h-[200px] ${
+                isDragging
+                  ? "border-primary bg-primary/10"
+                  : "border-muted-foreground/25 hover:border-primary/50"
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => thumbnailInputRef.current?.click()}
+            >
               <input
                 ref={thumbnailInputRef}
                 type="file"
                 accept="image/*"
-                style={{ display: "none" }}
+                className="hidden"
                 onChange={handleThumbnailFile}
               />
+
+              {thumbnail ? (
+                <div className="relative w-full h-full min-h-[160px] flex items-center justify-center">
+                  <img
+                    src={thumbnail}
+                    alt="Thumbnail preview"
+                    className="max-h-[200px] w-auto object-contain rounded-md"
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setThumbnail("");
+                      setThumbnailFile(null);
+                    }}
+                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <div className="p-3 bg-background rounded-full border shadow-sm">
+                    <Upload className="w-6 h-6" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-foreground">
+                      Click to upload or drag and drop
+                    </p>
+                    <p className="text-xs">SVG, PNG, JPG or GIF</p>
+                  </div>
+                </div>
+              )}
             </div>
-            <Input
-              placeholder="Thumbnail URL (or upload)"
-              value={thumbnail}
-              onChange={(e) => setThumbnail(e.target.value)}
-            />
-            {thumbnail ? (
-              <img
-                src={thumbnail || "/placeholder.svg"}
-                alt="Thumbnail"
-                className="w-full h-40 object-cover rounded-md mt-2 border"
+            
+            {/* Fallback URL input */}
+            <div className="mt-3">
+              <Label className="text-xs text-muted-foreground mb-1.5 block">
+                Or enter image URL
+              </Label>
+              <Input
+                placeholder="https://..."
+                value={thumbnail}
+                onChange={(e) => {
+                  setThumbnail(e.target.value);
+                  setThumbnailFile(null);
+                }}
+                className="text-sm"
               />
-            ) : null}
+            </div>
           </div>
 
           <div>
-            <div className="flex items-center gap-2">
-              <Label>Post Images</Label>
-              <button
-                type="button"
-                onClick={() => postImagesInputRef.current?.click()}
-                title="Upload images"
-                className="ml-2"
-              >
-                <ImagePlus />
-              </button>
+            <Label className="mb-2 block">Post Images</Label>
+            <div
+              className={`relative border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center transition-colors cursor-pointer min-h-[120px] ${
+                isDraggingImages
+                  ? "border-primary bg-primary/10"
+                  : "border-muted-foreground/25 hover:border-primary/50"
+              }`}
+              onDragOver={handleDragOverImages}
+              onDragLeave={handleDragLeaveImages}
+              onDrop={handleDropImages}
+              onClick={() => postImagesInputRef.current?.click()}
+            >
               <input
                 ref={postImagesInputRef}
                 type="file"
                 accept="image/*"
                 multiple
-                style={{ display: "none" }}
+                className="hidden"
                 onChange={handleImageUpload}
               />
+              <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <div className="p-3 bg-background rounded-full border shadow-sm">
+                  <ImagePlus className="w-6 h-6" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-medium text-foreground">
+                    Click to upload multiple images
+                  </p>
+                  <p className="text-xs">or drag and drop them here</p>
+                </div>
+              </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 mt-2">
-              {images.map((img, idx) => (
-                <div key={idx} className="relative">
-                  <img
-                    src={img || "/placeholder.svg"}
-                    alt={`img-${idx}`}
-                    className="w-28 h-20 object-cover rounded-md border"
-                  />
-                  <button
-                    onClick={() =>
-                      setImages((p) => p.filter((_, i) => i !== idx))
-                    }
-                    className="absolute -top-1 -right-1 bg-white rounded-full px-1 text-sm"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
+            {/* Images Grid Preview */}
+            {images.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
+                {images.map((img, idx) => (
+                  <div key={img.id} className="group relative aspect-video bg-muted rounded-md overflow-hidden border">
+                    <img
+                      src={img.url || "/placeholder.svg"}
+                      alt={`img-${idx}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <button
+                        onClick={() =>
+                          setImages((p) => p.filter((_, i) => i !== idx))
+                        }
+                        className="bg-destructive text-destructive-foreground rounded-full p-1.5 hover:bg-destructive/90 transition-colors"
+                        title="Remove image"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

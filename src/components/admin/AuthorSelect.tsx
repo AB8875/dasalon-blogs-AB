@@ -2,7 +2,18 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-export type UserItem = { _id: string; name: string; email?: string };
+export type UserItem = {
+  _id: string;
+  name: string;
+  email?: string;
+  image?: string;
+  description?: string;
+  education?: string;
+  address?: string;
+  instagram?: string;
+  linkedin?: string;
+  index?: number;
+};
 
 interface AuthorSelectProps {
   value?: UserItem | null;
@@ -259,10 +270,25 @@ export default function AuthorSelect({
                   setOpen(false);
                 }}
               >
+                {/* NEW: Show author image */}
+                {a.image ? (
+                  <img
+                    src={a.image}
+                    alt={a.name}
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-semibold">
+                    {a.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div className="flex-1">
                   <div className="font-medium text-sm">{a.name}</div>
                   {a.email && (
                     <div className="text-xs text-gray-500">{a.email}</div>
+                  )}
+                  {a.education && (
+                    <div className="text-xs text-gray-400">{a.education}</div>
                   )}
                 </div>
               </div>
