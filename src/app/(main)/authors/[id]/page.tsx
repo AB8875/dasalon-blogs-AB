@@ -34,12 +34,13 @@ async function getAuthorBlogs(id: string): Promise<BlogPost[]> {
 export default async function AuthorProfilePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const author = await getAuthor(params.id);
+  const { id } = await params;
+  const author = await getAuthor(id);
   if (!author) notFound();
 
-  const blogs = await getAuthorBlogs(params.id);
+  const blogs = await getAuthorBlogs(id);
 
   return (
     <div className="max-w-[1344px] mx-auto py-10 px-4 md:px-8">
