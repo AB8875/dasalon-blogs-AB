@@ -33,17 +33,6 @@ type MenuType = {
   submenus?: MenuType[];
 };
 
-// ... (rest of the file until the error line)
-
-                            setSubmenuForm({
-                              name: sub.name,
-                              slug: sub.slug,
-                              description: sub.description,
-                              index: sub.index || 0,
-                            });
-                            setIsDialogOpen(true);
-                          }}
-
 export default function AdminMenuPage() {
   const [menus, setMenus] = useState<MenuType[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -460,7 +449,12 @@ export default function AdminMenuPage() {
                           onClick={() => {
                             setSelectedParent(menu.id);
                             setEditingMenu(sub);
-                            setSubmenuForm(sub);
+                            setSubmenuForm({
+                              name: sub.name,
+                              slug: sub.slug,
+                              description: sub.description,
+                              index: sub.index || 0,
+                            });
                             setIsDialogOpen(true);
                           }}
                         >
