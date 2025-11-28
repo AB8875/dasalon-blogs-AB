@@ -29,8 +29,20 @@ type MenuType = {
   name: string;
   slug: string;
   description: string;
+  index?: number;
   submenus?: MenuType[];
 };
+
+// ... (rest of the file until the error line)
+
+                            setSubmenuForm({
+                              name: sub.name,
+                              slug: sub.slug,
+                              description: sub.description,
+                              index: sub.index || 0,
+                            });
+                            setIsDialogOpen(true);
+                          }}
 
 export default function AdminMenuPage() {
   const [menus, setMenus] = useState<MenuType[]>([]);
