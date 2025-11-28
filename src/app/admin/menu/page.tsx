@@ -41,6 +41,7 @@ export default function AdminMenuPage() {
     name: "",
     slug: "",
     description: "",
+    index: 0,
   });
   const [selectedParent, setSelectedParent] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -117,7 +118,7 @@ export default function AdminMenuPage() {
   const resetForm = () => {
     setEditingMenu(null);
     setSelectedParent(null);
-    setSubmenuForm({ name: "", slug: "", description: "" });
+    setSubmenuForm({ name: "", slug: "", description: "", index: 0 });
   };
 
   // ---------------------- EDIT MENU ----------------------
@@ -127,6 +128,7 @@ export default function AdminMenuPage() {
       name: menu.name,
       slug: menu.slug,
       description: menu.description,
+      index: 0, // Default or fetch if available
     });
     setSelectedParent(null);
     setIsDialogOpen(true);
@@ -135,7 +137,7 @@ export default function AdminMenuPage() {
   // ---------------------- ADD SUBMENU ----------------------
   const handleAddSubmenu = (parentId: string) => {
     setSelectedParent(parentId);
-    setSubmenuForm({ name: "", slug: "", description: "" });
+    setSubmenuForm({ name: "", slug: "", description: "", index: 0 });
     setIsDialogOpen(true);
   };
 
@@ -143,7 +145,8 @@ export default function AdminMenuPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const payload = { ...submenuForm };
+      // Ensure index is a number
+      const payload = { ...submenuForm, index: Number(submenuForm.index) };
 
       let response;
       if (selectedParent) {
@@ -324,6 +327,18 @@ export default function AdminMenuPage() {
                     setSubmenuForm({ ...submenuForm, slug: e.target.value })
                   }
                   placeholder="Leave empty to auto-generate"
+                />
+              </div>
+              <div>
+                <Label htmlFor="index">Order Index</Label>
+                <Input
+                  id="index"
+                  type="number"
+                  value={submenuForm.index}
+                  onChange={(e) =>
+                    setSubmenuForm({ ...submenuForm, index: Number(e.target.value) })
+                  }
+                  placeholder="0"
                 />
               </div>
               <div>
