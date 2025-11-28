@@ -241,12 +241,21 @@ export default function CreatePostPage() {
   async function uploadToS3(file: File): Promise<string> {
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("folder", "posts");
 
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
+    const token = localStorage.getItem("token");
+    const headers: HeadersInit = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/upload?folder=posts`,
+      {
+        method: "POST",
+        headers,
+        body: formData,
+      }
+    );
 
     if (!res.ok) {
       const err = await res.text().catch(() => "Unknown error");
@@ -254,10 +263,10 @@ export default function CreatePostPage() {
     }
 
     const json = await res.json();
-    if (!json.secure_url) {
-      throw new Error("Upload response missing secure_url");
+    if (!json.url) {
+      throw new Error("Upload response missing url");
     }
-    return json.secure_url;
+    return json.url;
   }
 
   const handleThumbnailFile = async (

@@ -150,7 +150,29 @@ export default function AdminMenuPage() {
       const payload = { ...submenuForm, index: Number(submenuForm.index) };
 
       let response;
-      if (selectedParent) {
+      
+      // Case 1: Editing an existing item
+      if (editingMenu) {
+        if (selectedParent) {
+          // Edit Submenu
+          response = await axios.put(
+            `${base}/api/menu/submenus/${editingMenu.id}`,
+            payload,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          toast.success("Submenu updated successfully!");
+        } else {
+          // Edit Main Menu
+          response = await axios.put(
+            `${base}/api/menu/menus/${editingMenu.id}`,
+            payload,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          toast.success("Menu updated successfully!");
+        }
+      } 
+      // Case 2: Creating a new item
+      else if (selectedParent) {
         // Create Submenu
         response = await axios.post(
           `${base}/api/menu/submenus`,
@@ -158,16 +180,8 @@ export default function AdminMenuPage() {
           { headers: { Authorization: `Bearer ${token}` } }
         );
         toast.success("Submenu created successfully!");
-      } else if (editingMenu) {
-        // Edit Menu
-        response = await axios.put(
-          `${base}/api/menu/menus/${editingMenu.id}`,
-          payload,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        toast.success("Menu updated successfully!");
       } else {
-        // Create Menu
+        // Create Main Menu
         response = await axios.post(`${base}/api/menu/menus`, payload, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -178,8 +192,29 @@ export default function AdminMenuPage() {
       const newMenu = response?.data;
       if (newMenu) {
         setMenus((prev) => {
-          // If submenu
-          if (selectedParent) {
+          // Case 1: Editing Submenu (Both selectedParent and editingMenu are set)
+          if (selectedParent && editingMenu) {
+             return prev.map((menu) =>
+              menu.id === selectedParent
+                ? {
+                    ...menu,
+                    submenus: menu.submenus?.map((sub) =>
+                      sub.id === editingMenu.id
+                        ? {
+                            ...sub,
+                            name: newMenu.name,
+                            slug: newMenu.slug,
+                            description: newMenu.description,
+                            index: newMenu.index,
+                          }
+                        : sub
+                    ),
+                  }
+                : menu
+            );
+          }
+          // Case 2: Creating Submenu (Only selectedParent is set)
+          else if (selectedParent) {
             return prev.map((menu) =>
               menu.id === selectedParent
                 ? {
@@ -191,13 +226,14 @@ export default function AdminMenuPage() {
                         name: newMenu.name,
                         slug: newMenu.slug,
                         description: newMenu.description || "",
+                        index: newMenu.index,
                       },
                     ],
                   }
                 : menu
             );
           }
-          // If editing
+          // Case 3: Editing Main Menu (Only editingMenu is set)
           else if (editingMenu) {
             return prev.map((menu) =>
               menu.id === editingMenu.id
@@ -206,11 +242,12 @@ export default function AdminMenuPage() {
                     name: newMenu.name,
                     slug: newMenu.slug,
                     description: newMenu.description,
+                    index: newMenu.index,
                   }
                 : menu
             );
           }
-          // If new menu
+          // Case 4: Creating Main Menu
           else {
             return [
               ...prev,
@@ -219,6 +256,7 @@ export default function AdminMenuPage() {
                 name: newMenu.name,
                 slug: newMenu.slug,
                 description: newMenu.description || "",
+                index: newMenu.index,
                 submenus: [],
               },
             ];
