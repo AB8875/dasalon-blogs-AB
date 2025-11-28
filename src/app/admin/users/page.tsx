@@ -53,7 +53,7 @@ export default function UsersPage() {
   >(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  const BACKEND_URL = "http://localhost:4000";
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
   useEffect(() => {
     fetchUsers();
@@ -81,11 +81,21 @@ export default function UsersPage() {
 
   async function fetchUsers() {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/users`);
+      const token = localStorage.getItem("token");
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`${BACKEND_URL}/api/users`, { headers });
       if (!res.ok) throw new Error(`Failed to fetch users: ${res.statusText}`);
       const data = await res.json();
       if (Array.isArray(data.items)) {
         setUsers(data.items);
+      } else if (Array.isArray(data)) {
+        setUsers(data);
       } else {
         setUsers([]);
       }
@@ -104,9 +114,17 @@ export default function UsersPage() {
     }
 
     try {
+      const token = localStorage.getItem("token");
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const res = await fetch(`${BACKEND_URL}/api/users`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(formData),
       });
       if (!res.ok) {

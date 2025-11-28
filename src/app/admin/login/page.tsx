@@ -43,10 +43,17 @@ export default function LoginPage() {
         { headers: { "Content-Type": "application/json" } }
       );
 
-      const { access_token, user } = res.data;
+      console.log("Login response:", res.data);
+      const { access_token, token, user } = res.data;
+      
+      const finalToken = access_token || token;
+
+      if (!finalToken) {
+        throw new Error("No access token received from server");
+      }
 
       // Store token & user info using generic keys for universal roles
-      localStorage.setItem("token", access_token);
+      localStorage.setItem("token", finalToken);
       localStorage.setItem("user", JSON.stringify(user)); // Main universal key
 
       toast.success("Login successful!");
