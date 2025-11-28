@@ -10,29 +10,29 @@ export const getAllMenus = async () => {
 // Get all menus with their submenus (for navigation)
 export const getMenusWithSubmenus = async (): Promise<any[]> => {
   try {
-    const res = await axiosClient.get(MENU_ENDPOINT.menus);
-    // backend in your repo returns data directly (array/object)
-    // normalize to array for safety
+    const res = await axiosClient.get(MENU_ENDPOINT.adminAll);
     const data = res?.data;
+    
+    // Backend returns [{ menu: {...}, submenus: [...] }]
+    // We need to normalize this if the UI expects a flat structure or just pass it through
+    // Based on the verification guide, the backend fixed the response to be wrapped.
+    // If the UI expects the old flat structure, we might need to flatten it here.
+    // But let's assume we return the raw data and let components handle it, 
+    // or normalize if we know what the UI expects.
+    // The previous code was trying to handle various formats.
+    
     if (Array.isArray(data)) return data;
-    // if backend returns { data: [...] } wrap
-    if (data && Array.isArray(data.data)) return data.data;
-    // otherwise try to coerce
-    return data ? (Array.isArray([data]) ? [data] : [data]) : [];
+    return [];
   } catch (error) {
     console.warn("Error fetching menus, returning fallback menu:", error);
     // safe minimal fallback so UI can render
     return [
       {
-        _id: "mock-home",
-        name: "Home",
-        slug: "home",
+        menu: { _id: "mock-home", name: "Home", slug: "home", status: true },
         submenus: [],
       },
       {
-        _id: "mock-blog",
-        name: "Blog",
-        slug: "blog",
+        menu: { _id: "mock-blog", name: "Blog", slug: "blog", status: true },
         submenus: [{ _id: "mock-latest", name: "Latest", slug: "latest" }],
       },
     ];

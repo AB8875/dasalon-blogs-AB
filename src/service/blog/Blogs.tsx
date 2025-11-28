@@ -13,9 +13,9 @@ export const getBlogsBySubmenu = async (
 ) => {
   const url = `${
     BLOG_ENDPOINT.blogs
-  }?filters[submenu][documentId][$eq]=${encodeURIComponent(
+  }?submenu=${encodeURIComponent(
     submenuId
-  )}&page=${page}&limit=${limit}&sort=createdAt:desc&populate=*`;
+  )}&page=${page}&limit=${limit}&sort=createdAt:desc`;
   const res = await axiosClient.get(url);
   // backend returns array or paginated object; normalize to { data: [...] }
   const data = Array.isArray(res.data) ? res.data : res.data?.data || [];
@@ -89,9 +89,8 @@ export const fetblogAll = async (limit = 6) => {
  */
 export const blogBySlug = async (slug: string) => {
   if (!slug) return null;
-  const url = `${BLOG_ENDPOINT.blogs}?filters[slug][$eq]=${encodeURIComponent(
-    slug
-  )}&populate=*`;
+  // Use new dedicated slug endpoint
+  const url = `${BLOG_ENDPOINT.blogs}/slug/${encodeURIComponent(slug)}`;
   const res = await axiosClient.get(url);
   return res.data;
 };

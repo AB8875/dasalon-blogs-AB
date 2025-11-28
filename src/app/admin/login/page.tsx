@@ -37,16 +37,16 @@ export default function LoginPage() {
     try {
       const res = await axios.post(
         `${
-          process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"
         }/api/auth/login`,
         { email, password },
         { headers: { "Content-Type": "application/json" } }
       );
 
-      const { token, user } = res.data;
+      const { access_token, user } = res.data;
 
       // Store token & user info using generic keys for universal roles
-      localStorage.setItem("token", token);
+      localStorage.setItem("token", access_token);
       localStorage.setItem("user", JSON.stringify(user)); // Main universal key
 
       toast.success("Login successful!");
