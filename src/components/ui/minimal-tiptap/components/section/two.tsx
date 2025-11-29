@@ -1,8 +1,8 @@
-import * as React from "react"
-import type { Editor } from "@tiptap/react"
-import type { FormatAction } from "../../types"
-import type { toggleVariants } from "@/components/ui/toggle"
-import type { VariantProps } from "class-variance-authority"
+import * as React from "react";
+import type { Editor } from "@tiptap/react";
+import type { FormatAction } from "../../types";
+import type { toggleVariants } from "@/components/ui/toggle";
+import type { VariantProps } from "class-variance-authority";
 import {
   CodeIcon,
   DotsHorizontalIcon,
@@ -11,8 +11,8 @@ import {
   StrikethroughIcon,
   TextNoneIcon,
   UnderlineIcon,
-} from "@radix-ui/react-icons"
-import { ToolbarSection } from "../toolbar-section"
+} from "@radix-ui/react-icons";
+import { ToolbarSection } from "../toolbar-section";
 
 type TextStyleAction =
   | "bold"
@@ -20,10 +20,21 @@ type TextStyleAction =
   | "underline"
   | "strikethrough"
   | "code"
-  | "clearFormatting"
+  | "clearFormatting";
 
 interface TextStyle extends FormatAction {
-  value: TextStyleAction
+  value: TextStyleAction;
+}
+
+// Helper to safely call editor methods without throwing during mount
+function safeCan(editor: Editor | null, fn: (ed: Editor) => boolean): boolean {
+  if (!editor) return false;
+  try {
+    return !!fn(editor);
+  } catch (err) {
+    // If editor isn't ready or can() throws during mount, treat as not executable
+    return false;
+  }
 }
 
 const formatActions: TextStyle[] = [
@@ -32,11 +43,22 @@ const formatActions: TextStyle[] = [
     label: "Bold",
     icon: <FontBoldIcon className="size-5" />,
     action: (editor) => editor.chain().focus().toggleBold().run(),
-    isActive: (editor) => editor.isActive("bold"),
+    isActive: (editor) =>
+      !!editor && !!editor.isActive && editor.isActive("bold"),
     canExecute: (editor) => {
-      if (!editor.view || !editor.view.hasFocus) return false;
-      return editor.can().chain().focus().toggleBold().run() &&
-        !editor.isActive("codeBlock");
+      // defensive: guard against missing view or hasFocus
+      if (!editor) return false;
+      const view: any = (editor as any).view;
+      if (!view) return false;
+      const hasFocus =
+        typeof view.hasFocus === "function" ? view.hasFocus() : !!view.hasFocus;
+      if (!hasFocus) return false;
+      return safeCan(
+        editor,
+        (ed) =>
+          ed.can().chain().focus().toggleBold().run() &&
+          !ed.isActive("codeBlock")
+      );
     },
     shortcuts: ["mod", "B"],
   },
@@ -45,11 +67,21 @@ const formatActions: TextStyle[] = [
     label: "Italic",
     icon: <FontItalicIcon className="size-5" />,
     action: (editor) => editor.chain().focus().toggleItalic().run(),
-    isActive: (editor) => editor.isActive("italic"),
+    isActive: (editor) =>
+      !!editor && !!editor.isActive && editor.isActive("italic"),
     canExecute: (editor) => {
-      if (!editor.view || !editor.view.hasFocus) return false;
-      return editor.can().chain().focus().toggleItalic().run() &&
-        !editor.isActive("codeBlock");
+      if (!editor) return false;
+      const view: any = (editor as any).view;
+      if (!view) return false;
+      const hasFocus =
+        typeof view.hasFocus === "function" ? view.hasFocus() : !!view.hasFocus;
+      if (!hasFocus) return false;
+      return safeCan(
+        editor,
+        (ed) =>
+          ed.can().chain().focus().toggleItalic().run() &&
+          !ed.isActive("codeBlock")
+      );
     },
     shortcuts: ["mod", "I"],
   },
@@ -58,11 +90,21 @@ const formatActions: TextStyle[] = [
     label: "Underline",
     icon: <UnderlineIcon className="size-5" />,
     action: (editor) => editor.chain().focus().toggleUnderline().run(),
-    isActive: (editor) => editor.isActive("underline"),
+    isActive: (editor) =>
+      !!editor && !!editor.isActive && editor.isActive("underline"),
     canExecute: (editor) => {
-      if (!editor.view || !editor.view.hasFocus) return false;
-      return editor.can().chain().focus().toggleUnderline().run() &&
-        !editor.isActive("codeBlock");
+      if (!editor) return false;
+      const view: any = (editor as any).view;
+      if (!view) return false;
+      const hasFocus =
+        typeof view.hasFocus === "function" ? view.hasFocus() : !!view.hasFocus;
+      if (!hasFocus) return false;
+      return safeCan(
+        editor,
+        (ed) =>
+          ed.can().chain().focus().toggleUnderline().run() &&
+          !ed.isActive("codeBlock")
+      );
     },
     shortcuts: ["mod", "U"],
   },
@@ -71,11 +113,21 @@ const formatActions: TextStyle[] = [
     label: "Strikethrough",
     icon: <StrikethroughIcon className="size-5" />,
     action: (editor) => editor.chain().focus().toggleStrike().run(),
-    isActive: (editor) => editor.isActive("strike"),
+    isActive: (editor) =>
+      !!editor && !!editor.isActive && editor.isActive("strike"),
     canExecute: (editor) => {
-      if (!editor.view || !editor.view.hasFocus) return false;
-      return editor.can().chain().focus().toggleStrike().run() &&
-        !editor.isActive("codeBlock");
+      if (!editor) return false;
+      const view: any = (editor as any).view;
+      if (!view) return false;
+      const hasFocus =
+        typeof view.hasFocus === "function" ? view.hasFocus() : !!view.hasFocus;
+      if (!hasFocus) return false;
+      return safeCan(
+        editor,
+        (ed) =>
+          ed.can().chain().focus().toggleStrike().run() &&
+          !ed.isActive("codeBlock")
+      );
     },
     shortcuts: ["mod", "shift", "S"],
   },
@@ -84,11 +136,21 @@ const formatActions: TextStyle[] = [
     label: "Code",
     icon: <CodeIcon className="size-5" />,
     action: (editor) => editor.chain().focus().toggleCode().run(),
-    isActive: (editor) => editor.isActive("code"),
+    isActive: (editor) =>
+      !!editor && !!editor.isActive && editor.isActive("code"),
     canExecute: (editor) => {
-      if (!editor.view || !editor.view.hasFocus) return false;
-      return editor.can().chain().focus().toggleCode().run() &&
-        !editor.isActive("codeBlock");
+      if (!editor) return false;
+      const view: any = (editor as any).view;
+      if (!view) return false;
+      const hasFocus =
+        typeof view.hasFocus === "function" ? view.hasFocus() : !!view.hasFocus;
+      if (!hasFocus) return false;
+      return safeCan(
+        editor,
+        (ed) =>
+          ed.can().chain().focus().toggleCode().run() &&
+          !ed.isActive("codeBlock")
+      );
     },
     shortcuts: ["mod", "E"],
   },
@@ -99,18 +161,27 @@ const formatActions: TextStyle[] = [
     action: (editor) => editor.chain().focus().unsetAllMarks().run(),
     isActive: () => false,
     canExecute: (editor) => {
-      if (!editor.view || !editor.view.hasFocus) return false;
-      return editor.can().chain().focus().unsetAllMarks().run() &&
-        !editor.isActive("codeBlock");
+      if (!editor) return false;
+      const view: any = (editor as any).view;
+      if (!view) return false;
+      const hasFocus =
+        typeof view.hasFocus === "function" ? view.hasFocus() : !!view.hasFocus;
+      if (!hasFocus) return false;
+      return safeCan(
+        editor,
+        (ed) =>
+          ed.can().chain().focus().unsetAllMarks().run() &&
+          !ed.isActive("codeBlock")
+      );
     },
     shortcuts: ["mod", "\\"],
   },
-]
+];
 
 interface SectionTwoProps extends VariantProps<typeof toggleVariants> {
-  editor: Editor
-  activeActions?: TextStyleAction[]
-  mainActionCount?: number
+  editor: Editor | null;
+  activeActions?: TextStyleAction[];
+  mainActionCount?: number;
 }
 
 export const SectionTwo: React.FC<SectionTwoProps> = ({
@@ -122,7 +193,7 @@ export const SectionTwo: React.FC<SectionTwoProps> = ({
 }) => {
   return (
     <ToolbarSection
-      editor={editor}
+      editor={editor as any}
       actions={formatActions}
       activeActions={activeActions}
       mainActionCount={mainActionCount}
@@ -132,9 +203,9 @@ export const SectionTwo: React.FC<SectionTwoProps> = ({
       size={size}
       variant={variant}
     />
-  )
-}
+  );
+};
 
-SectionTwo.displayName = "SectionTwo"
+SectionTwo.displayName = "SectionTwo";
 
-export default SectionTwo
+export default SectionTwo;

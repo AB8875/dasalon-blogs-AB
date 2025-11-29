@@ -15,33 +15,21 @@ export default function RichTextEditor({
   onChange,
   editable = true,
 }: RichTextEditorProps) {
-  // Custom image upload handler
   const handleImageUpload = async (file: File): Promise<string> => {
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const token = localStorage.getItem("token");
-      const headers: HeadersInit = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/settings/upload`,
-        {
-          method: "POST",
-          headers,
-          body: formData,
-        }
-      );
-
-      if (!res.ok) throw new Error("Upload failed");
-      const data = await res.json();
-      return data.url;
-    } catch (error) {
-      console.error("Image upload failed:", error);
-      throw error;
-    }
+    // unchanged
+    const formData = new FormData();
+    formData.append("file", file);
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const headers: HeadersInit = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/settings/upload`,
+      { method: "POST", headers, body: formData }
+    );
+    if (!res.ok) throw new Error("Upload failed");
+    const data = await res.json();
+    return data.url;
   };
 
   const handleChange = (value: Content) => {
