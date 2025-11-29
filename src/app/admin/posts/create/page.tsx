@@ -67,14 +67,14 @@ export default function CreatePostPage() {
   const [description, setDescription] = useState("");
   const [thumbnail, setThumbnail] = useState("");
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [postImages, setPostImages] = useState<string[]>([]);
+  const [postImageFiles, setPostImageFiles] = useState<File[]>([]);
   const [shareUrl, setShareUrl] = useState("");
   const [featured, setFeatured] = useState(false);
   const [status, setStatus] = useState("published");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [content, setContent] = useState<any>("");
-  // Store objects with optional file for pending uploads
-  const [images, setImages] = useState<Array<{ id: string; url: string; file?: File }>>([]);
   const [menuPairs, setMenuPairs] = useState<
     Array<{ id: string; menu: string; submenu: string }>
   >([{ id: cryptoRandomId(), menu: "", submenu: "" }]);
@@ -83,7 +83,7 @@ export default function CreatePostPage() {
     useState(false);
 
   const [isDragging, setIsDragging] = useState(false);
-  const [isDraggingImages, setIsDraggingImages] = useState(false);
+  const [isPostImagesDragging, setIsPostImagesDragging] = useState(false);
   const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
   const postImagesInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -303,40 +303,53 @@ export default function CreatePostPage() {
     }
   };
 
-  const handleDragOverImages = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDraggingImages(true);
+  // Post images handlers
+  const handlePostImagesFile = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    await processPostImageFiles(Array.from(files));
   };
 
-  const handleDragLeaveImages = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDraggingImages(false);
+  const processPostImageFiles = async (files: File[]) => {
+    const newPreviews: string[] = [];
+    const newFiles: File[] = [];
+
+    files.forEach((file) => {
+      const url = URL.createObjectURL(file);
+      newPreviews.push(url);
+      newFiles.push(file);
+    });
+
+    setPostImages((prev) => [...prev, ...newPreviews]);
+    setPostImageFiles((prev) => [...prev, ...newFiles]);
   };
 
-  const handleDropImages = async (e: React.DragEvent) => {
+  const handlePostImagesDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDraggingImages(false);
-    const files = Array.from(e.dataTransfer.files).filter((f) =>
-      f.type.startsWith("image/")
+    setIsPostImagesDragging(true);
+  };
+
+  const handlePostImagesDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsPostImagesDragging(false);
+  };
+
+  const handlePostImagesDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsPostImagesDragging(false);
+    const files = Array.from(e.dataTransfer.files).filter((file) =>
+      file.type.startsWith("image/")
     );
     if (files.length > 0) {
-      await processImageFiles(files);
+      await processPostImageFiles(files);
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files) return;
-    const files = Array.from(e.target.files);
-    await processImageFiles(files);
-  };
-
-  const processImageFiles = async (files: File[]) => {
-    const newImages = files.map((file) => ({
-      id: cryptoRandomId(),
-      url: URL.createObjectURL(file),
-      file,
-    }));
-    setImages((p) => [...p, ...newImages]);
+  const removePostImage = (index: number) => {
+    setPostImages((prev) => prev.filter((_, i) => i !== index));
+    setPostImageFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   // tags
@@ -381,15 +394,11 @@ export default function CreatePostPage() {
         finalThumbnail = await uploadToS3(thumbnailFile);
       }
 
-      // 2. Upload images if pending
-      const finalImages: string[] = [];
-      for (const img of images) {
-        if (img.file) {
-          const url = await uploadToS3(img.file);
-          finalImages.push(url);
-        } else {
-          finalImages.push(img.url);
-        }
+      // 2. Upload post images if pending
+      let finalPostImages: string[] = [];
+      if (postImageFiles.length > 0) {
+        const uploadPromises = postImageFiles.map((file) => uploadToS3(file));
+        finalPostImages = await Promise.all(uploadPromises);
       }
 
       // ensure we have an author id (if a name was typed and not selected, create then use id)
@@ -414,6 +423,7 @@ export default function CreatePostPage() {
         slug,
         description,
         thumbnail: finalThumbnail,
+        images: finalPostImages, // Add post images to payload
         menu: first.menu || "",
         submenu: first.submenu || "",
         authors: authorId ? [authorId] : [], // send IDs
@@ -422,7 +432,6 @@ export default function CreatePostPage() {
         status,
         tags,
         content,
-        images: finalImages,
         menus: menuPairs.map((m) => ({ menu: m.menu, submenu: m.submenu })),
       };
 
@@ -463,41 +472,42 @@ export default function CreatePostPage() {
 
       <div className="space-y-6">
         {/* Title/slug */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <Label>Blog Title</Label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label className="block">Blog Title</Label>
             <Input
               placeholder="Enter title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
           </div>
-          <div>
-            <Label>Slug (auto)</Label>
+          <div className="space-y-2">
+            <Label className="block">Slug (auto)</Label>
             <Input readOnly value={slug} />
           </div>
         </div>
 
         {/* Description */}
-        <div>
-          <Label>Description</Label>
+        <div className="space-y-2">
+          <Label className="block">Description</Label>
           <textarea
-            className="w-full mt-2 p-2 border rounded resize-vertical min-h-[80px]"
-            placeholder="Short summary"
+            className="w-full p-3 border rounded-md resize-vertical min-h-[100px] focus:outline-none focus:ring-2 focus:ring-ring"
+            placeholder="Write a short summary for SEO and previews..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
         </div>
 
-        {/* Thumbnail / images side-by-side */}
+        {/* Thumbnail & Post Images side-by-side */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <Label className="mb-2 block">Thumbnail</Label>
+          {/* Thumbnail Section */}
+          <div className="space-y-2">
+            <Label className="block">Thumbnail</Label>
             <div
-              className={`relative border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center transition-colors cursor-pointer min-h-[200px] ${
+              className={`relative border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center transition-all cursor-pointer min-h-[180px] ${
                 isDragging
-                  ? "border-primary bg-primary/10"
-                  : "border-muted-foreground/25 hover:border-primary/50"
+                  ? "border-primary bg-primary/10 scale-[1.02]"
+                  : "border-muted-foreground/25 hover:border-primary/50 hover:bg-accent/5"
               }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -513,41 +523,45 @@ export default function CreatePostPage() {
               />
 
               {thumbnail ? (
-                <div className="relative w-full h-full min-h-[160px] flex items-center justify-center">
+                <div className="relative w-full h-full min-h-[140px] flex items-center justify-center group">
                   <img
                     src={thumbnail}
                     alt="Thumbnail preview"
-                    className="max-h-[200px] w-auto object-contain rounded-md"
+                    className="max-h-[160px] w-full object-cover rounded-md"
                   />
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setThumbnail("");
-                      setThumbnailFile(null);
-                    }}
-                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90 transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setThumbnail("");
+                        setThumbnailFile(null);
+                      }}
+                      className="bg-destructive text-destructive-foreground px-3 py-1.5 rounded-md text-sm font-medium hover:bg-destructive/90 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                  <div className="p-3 bg-background rounded-full border shadow-sm">
+                  <div className="p-3 bg-accent/50 rounded-full">
                     <Upload className="w-6 h-6" />
                   </div>
                   <div className="text-center">
                     <p className="text-sm font-medium text-foreground">
                       Click to upload or drag and drop
                     </p>
-                    <p className="text-xs">SVG, PNG, JPG or GIF</p>
+                    <p className="text-xs mt-1">
+                      SVG, PNG, JPG or GIF (max. 4K)
+                    </p>
                   </div>
                 </div>
               )}
             </div>
-            
-            {/* Fallback URL input */}
-            <div className="mt-3">
-              <Label className="text-xs text-muted-foreground mb-1.5 block">
+
+            {/* URL input fallback */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">
                 Or enter image URL
               </Label>
               <Input
@@ -562,17 +576,18 @@ export default function CreatePostPage() {
             </div>
           </div>
 
-          <div>
-            <Label className="mb-2 block">Post Images</Label>
+          {/* Post Images Section */}
+          <div className="space-y-2">
+            <Label className="block">Post Images</Label>
             <div
-              className={`relative border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center transition-colors cursor-pointer min-h-[120px] ${
-                isDraggingImages
-                  ? "border-primary bg-primary/10"
-                  : "border-muted-foreground/25 hover:border-primary/50"
+              className={`relative border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center transition-all cursor-pointer min-h-[180px] ${
+                isPostImagesDragging
+                  ? "border-primary bg-primary/10 scale-[1.02]"
+                  : "border-muted-foreground/25 hover:border-primary/50 hover:bg-accent/5"
               }`}
-              onDragOver={handleDragOverImages}
-              onDragLeave={handleDragLeaveImages}
-              onDrop={handleDropImages}
+              onDragOver={handlePostImagesDragOver}
+              onDragLeave={handlePostImagesDragLeave}
+              onDrop={handlePostImagesDrop}
               onClick={() => postImagesInputRef.current?.click()}
             >
               <input
@@ -581,68 +596,69 @@ export default function CreatePostPage() {
                 accept="image/*"
                 multiple
                 className="hidden"
-                onChange={handleImageUpload}
+                onChange={handlePostImagesFile}
               />
-              <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                <div className="p-3 bg-background rounded-full border shadow-sm">
-                  <ImagePlus className="w-6 h-6" />
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-medium text-foreground">
-                    Click to upload multiple images
-                  </p>
-                  <p className="text-xs">or drag and drop them here</p>
-                </div>
-              </div>
-            </div>
 
-            {/* Images Grid Preview */}
-            {images.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
-                {images.map((img, idx) => (
-                  <div key={img.id} className="group relative aspect-video bg-muted rounded-md overflow-hidden border">
-                    <img
-                      src={img.url || "/placeholder.svg"}
-                      alt={`img-${idx}`}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              {postImages.length > 0 ? (
+                <div className="w-full grid grid-cols-3 gap-2">
+                  {postImages.map((img, idx) => (
+                    <div
+                      key={idx}
+                      className="relative aspect-square group"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <img
+                        src={img}
+                        alt={`Post image ${idx + 1}`}
+                        className="w-full h-full object-cover rounded-md"
+                      />
                       <button
-                        onClick={() =>
-                          setImages((p) => p.filter((_, i) => i !== idx))
-                        }
-                        className="bg-destructive text-destructive-foreground rounded-full p-1.5 hover:bg-destructive/90 transition-colors"
-                        title="Remove image"
+                        onClick={() => removePostImage(idx)}
+                        className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-3 h-3" />
                       </button>
                     </div>
+                  ))}
+                  {/* Add more button */}
+                  <div className="aspect-square border-2 border-dashed rounded-md flex items-center justify-center hover:bg-accent/50 transition-colors">
+                    <ImagePlus className="w-5 h-5 text-muted-foreground" />
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <div className="p-3 bg-accent/50 rounded-full">
+                    <ImagePlus className="w-6 h-6" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-foreground">
+                      Click to upload multiple images
+                    </p>
+                    <p className="text-xs mt-1">or drag and drop them here</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Author + share url */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <Label>Author</Label>
-            <div className="mt-2">
-              <AuthorSelect
-                value={authorSelected}
-                onChange={(u) => {
-                  // guard against undefined from AuthorSelect's signature
-                  setAuthorSelected(u ?? null);
-                }}
-                apiUrl={apiUrl}
-                placeholder="Type author name (select or create)"
-              />
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label className="block">Author</Label>
+            <AuthorSelect
+              value={authorSelected}
+              onChange={(u) => {
+                // guard against undefined from AuthorSelect's signature
+                setAuthorSelected(u ?? null);
+              }}
+              apiUrl={apiUrl}
+              placeholder="Type author name (select or create)"
+            />
           </div>
 
-          <div>
-            <Label>Share URL</Label>
+          <div className="space-y-2">
+            <Label className="block">Share URL</Label>
             <Input
               placeholder="share-url"
               value={shareUrl}
@@ -654,9 +670,9 @@ export default function CreatePostPage() {
           </div>
         </div>
 
-        {/* Menus & tags & content (unchanged) */}
-        <div>
-          <Label>Menus & Submenus (add multiple)</Label>
+        {/* Menus & Submenus (add multiple) */}
+        <div className="space-y-2">
+          <Label className="block">Menus & Submenus (add multiple)</Label>
           <div className="space-y-3 mt-2">
             {menuPairs.map((pair) => (
               <div key={pair.id} className="flex gap-3 items-center">
@@ -723,8 +739,9 @@ export default function CreatePostPage() {
           </div>
         </div>
 
-        <div>
-          <Label>Tags</Label>
+        {/* Tags */}
+        <div className="space-y-2">
+          <Label className="block">Tags</Label>
           <div className="flex flex-wrap items-center gap-2 border mt-2 rounded-md p-2">
             {tags.map((tag) => (
               <Badge
@@ -751,9 +768,10 @@ export default function CreatePostPage() {
           </div>
         </div>
 
-        <div>
-          <Label>Content</Label>
-          <div className="mt-2 border rounded-md min-h-[200px]">
+        {/* Content */}
+        <div className="space-y-2">
+          <Label className="block">Content</Label>
+          <div className="border rounded-md min-h-[200px]">
             {/* @ts-ignore */}
             <RichTextEditor content={content} onChange={setContent} />
           </div>
