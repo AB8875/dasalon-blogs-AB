@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2 } from "lucide-react";
+import { Loader2, UploadCloud } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 /**
@@ -94,64 +94,35 @@ export default function ProfilePage() {
   };
 
   // helper: upload avatar to backend; returns URL or null
-  async function uploadAvatar(file: File, userId?: string) {
+  async function uploadAvatar(file: File, userId: string): Promise<string | null> {
+    const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
     const form = new FormData();
     form.append("file", file);
 
-    const base = process.env.NEXT_PUBLIC_API_URL || "";
-    // try dedicated user avatar endpoint first
-    if (userId) {
-      try {
-        const res = await fetch(
-          `${base.replace(/\/$/, "")}/api/users/${userId}/avatar`,
-          {
-            method: "POST",
-            body: form,
-            headers: {
-              Authorization:
-                typeof window !== "undefined"
-                  ? `Bearer ${localStorage.getItem("token")}`
-                  : "",
-            },
-          }
-        );
-        if (res.ok) {
-          const json = await res.json();
-          return json?.url ?? json?.data?.url ?? null;
-        }
-      } catch (err) {
-        // continue to fallback
-        console.warn(
-          "User avatar endpoint failed, falling back to settings/upload",
-          err
-        );
-      }
-    }
-
-    // fallback: settings upload endpoint
     try {
-      const res = await fetch(
-        `${base.replace(/\/$/, "")}/api/settings/upload`,
-        {
-          method: "POST",
-          body: form,
-          headers: {
-            Authorization:
-              typeof window !== "undefined"
-                ? `Bearer ${localStorage.getItem("token")}`
-                : "",
-          },
-        }
-      );
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : "";
+      const res = await fetch(`${base}/api/settings/upload`, {
+        method: "POST",
+        body: form,
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
       if (res.ok) {
         const json = await res.json();
-        return json?.url ?? json?.data?.url ?? null;
+        return json?.url || null;
+      } else {
+        const errorText = await res.text();
+        console.error("Avatar upload failed:", errorText);
+        toast.error("Failed to upload avatar");
+        return null;
       }
     } catch (err) {
-      console.error("Avatar upload fallback failed", err);
+      console.error("Avatar upload error:", err);
+      toast.error("Failed to upload avatar");
+      return null;
     }
-
-    return null;
   }
 
   // update profile (avatar upload -> patch user) and optionally sync settings.contact elsewhere if desired
@@ -174,7 +145,7 @@ export default function ProfilePage() {
         if (uploaded) avatarUrl = uploaded;
       }
 
-      // prepare payload for PATCH
+      // prepare payload for PATCH (avatar is handled separately via dedicated endpoint)
       const payload: Partial<User> = {
         full_name: name,
         name: name,
@@ -239,101 +210,111 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-xl">My Profile</CardTitle>
+    <div className="max-w-3xl mx-auto py-8">
+      <Card className="shadow-lg border-none">
+        <CardHeader className="border-b bg-muted/20 pb-6">
+          <CardTitle className="text-2xl font-bold">My Profile</CardTitle>
         </CardHeader>
 
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-8 pt-8">
           {/* Avatar */}
-          <div className="flex flex-col items-center">
-            <Avatar className="w-24 h-24 mb-2">
-              {avatarPreview ? (
-                <AvatarImage src={avatarPreview} />
-              ) : (
-                <AvatarFallback>
-                  {(user.full_name ?? user.name ?? "Admin")
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .toUpperCase()}
-                </AvatarFallback>
-              )}
-            </Avatar>
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative group">
+              <Avatar className="w-32 h-32 border-4 border-background shadow-xl">
+                {avatarPreview ? (
+                  <AvatarImage src={avatarPreview} className="object-cover" />
+                ) : (
+                  <AvatarFallback className="text-3xl bg-primary/10 text-primary">
+                    {(user.full_name ?? user.name ?? "Admin")
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()}
+                  </AvatarFallback>
+                )}
+              </Avatar>
+              <label className="absolute bottom-0 right-0 bg-primary text-primary-foreground p-2 rounded-full cursor-pointer shadow-lg hover:bg-primary/90 transition-colors">
+                <UploadCloud className="w-5 h-5" />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={handleAvatarChange}
+                />
+              </label>
+            </div>
+            <div className="text-center">
+              <h3 className="font-semibold text-lg">{name || "User"}</h3>
+              <p className="text-sm text-muted-foreground">{user.role}</p>
+            </div>
+          </div>
 
-            <label className="cursor-pointer mt-2 text-blue-600 hover:underline inline-flex items-center gap-2">
-              <span>Change Avatar</span>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                onChange={handleAvatarChange}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Name */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Full Name
+              </label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your full name"
               />
-            </label>
-          </div>
+            </div>
 
-          {/* Name */}
-          <div>
-            <label className="text-sm font-medium text-gray-700">
-              Full Name
-            </label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1"
-            />
-          </div>
+            {/* Email */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Email</label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+              />
+            </div>
 
-          {/* Email */}
-          <div>
-            <label className="text-sm font-medium text-gray-700">Email</label>
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1"
-            />
-          </div>
+            {/* Phone */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Phone</label>
+              <Input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+1 234 567 890"
+              />
+            </div>
 
-          {/* Phone */}
-          <div>
-            <label className="text-sm font-medium text-gray-700">Phone</label>
-            <Input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="mt-1"
-            />
-          </div>
-
-          {/* Address */}
-          <div>
-            <label className="text-sm font-medium text-gray-700">Address</label>
-            <Input
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className="mt-1"
-            />
+            {/* Address */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Address</label>
+              <Input
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="123 Main St, City, Country"
+              />
+            </div>
           </div>
 
           {/* Role (read-only) */}
-          <div>
-            <label className="text-sm font-medium text-gray-700">Role</label>
-            <Input value={user.role} readOnly className="mt-1 bg-gray-100" />
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Role</label>
+            <Input value={user.role} readOnly className="bg-muted text-muted-foreground" />
           </div>
 
-          <Button
-            onClick={handleUpdate}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Update Profile"
-            )}
-          </Button>
+          <div className="pt-4">
+            <Button
+              onClick={handleUpdate}
+              disabled={loading}
+              className="w-full md:w-auto md:min-w-[200px] flex items-center justify-center gap-2"
+              size="lg"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

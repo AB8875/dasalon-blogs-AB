@@ -321,7 +321,7 @@ export function Navbar({
                 // Delay hiding results to allow click
                 setTimeout(() => setShowResults(false), 200);
               }}
-              className={`pl-10 pr-12 bg-gray-50/50 border-gray-200 rounded-xl w-full h-10 transition-all duration-300 focus-visible:ring-2 focus-visible:ring-blue-100 focus-visible:border-blue-300 ${
+              className={`pl-10 pr-12 bg-gray-50/50 border-gray-200 rounded-xl w-full h-10 transition-all duration-300 focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-border ${
                 isFocused
                   ? "bg-white shadow-md"
                   : "hover:bg-gray-50 hover:border-gray-300"

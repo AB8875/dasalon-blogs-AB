@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Input } from "@/components/ui/input";
 
 export type UserItem = {
   _id: string;
@@ -216,10 +217,9 @@ export default function AuthorSelect({
 
   return (
     <div className="relative">
-      <input
+      <Input
         ref={inputRef}
         type="text"
-        className="w-full p-2 border rounded"
         placeholder={placeholder}
         value={query}
         onChange={(e) => {

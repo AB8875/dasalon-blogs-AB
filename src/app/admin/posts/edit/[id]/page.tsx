@@ -3,7 +3,7 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useParams } from "next/navigation";
-import { ImagePlus } from "lucide-react";
+import { ImagePlus, Upload, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -65,12 +65,10 @@ export default function EditPostPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [content, setContent] = useState<any>("");
-  const [images, setImages] = useState<string[]>([]);
   const [menuPairs, setMenuPairs] = useState<
     Array<{ id: string; menu: string; submenu: string }>
   >([]);
   const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
-  const postImagesInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -151,7 +149,6 @@ export default function EditPostPage() {
       setStatus(p.status || "published");
       setTags(p.tags || []);
       setContent(p.content || "");
-      setImages(p.images || []);
 
       // authors: backend stores authors as array of ids. Try to resolve to name using preloaded authors or fetch user
       const authorId =
@@ -280,22 +277,7 @@ export default function EditPostPage() {
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files) return;
-    const files = Array.from(e.target.files);
-    try {
-      setLoading(true);
-      for (const f of files) {
-        const url = await uploadToS3(f);
-        setImages((p) => [...p, url]);
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Image upload failed");
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   // tags/menu helpers
   const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -391,7 +373,6 @@ export default function EditPostPage() {
       status,
       tags,
       content,
-      images,
       menus: menuPairs.map((m) => ({ menu: m.menu, submenu: m.submenu })),
     };
     try {
@@ -466,275 +447,272 @@ export default function EditPostPage() {
         </div>
       </div>
 
-      <div className="space-y-6">
-        {/* Title/slug */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <Label>Blog Title</Label>
-            <Input
-              placeholder="Enter title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Main Content */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* Title & Slug */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-base font-semibold">Blog Title</Label>
+              <Input
+                placeholder="Enter an engaging title..."
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="text-lg py-6"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Slug</Label>
+              <Input value={slug} onChange={(e) => setSlug(e.target.value)} className="bg-muted/50 font-mono text-sm" />
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="space-y-2">
+            <Label className="text-base font-semibold">Description</Label>
+            <textarea
+              className="w-full min-h-[120px] p-3 rounded-md border bg-transparent text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              placeholder="Write a short summary for SEO and previews..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
             />
           </div>
-          <div>
-            <Label>Slug (auto)</Label>
-            <Input value={slug} onChange={(e) => setSlug(e.target.value)} />
+
+          {/* Content Editor */}
+          <div className="space-y-2">
+            <Label className="text-base font-semibold">Content</Label>
+            <div className="min-h-[500px] border rounded-md shadow-sm bg-card">
+              {/* @ts-ignore */}
+              <RichTextEditor content={content} onChange={setContent} />
+            </div>
           </div>
         </div>
 
-        {/* Description */}
-        <div>
-          <Label>Description</Label>
-          <textarea
-            className="w-full mt-2 p-2 border rounded resize-vertical min-h-[80px]"
-            placeholder="Short summary"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-
-        {/* Thumbnail / images */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <div className="flex items-center gap-2">
-              <Label>Thumbnail</Label>
-              <button
-                type="button"
-                onClick={() => thumbnailInputRef.current?.click()}
-                title="Upload thumbnail"
-                className="ml-2"
+        {/* Right Column: Sidebar Settings */}
+        <div className="space-y-8">
+          {/* Publish Action */}
+          <div className="p-6 border rounded-xl bg-card shadow-sm space-y-4">
+            <h3 className="font-semibold text-lg">Publishing</h3>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Status</span>
+              <Badge variant={status === "published" ? "default" : "secondary"}>
+                {status}
+              </Badge>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button 
+                variant="outline" 
+                className="flex-1" 
+                onClick={() => setStatus("draft")}
+                disabled={status === "draft"}
               >
-                <ImagePlus />
-              </button>
+                Save Draft
+              </Button>
+              <Button 
+                className="flex-1" 
+                onClick={() => {
+                  setStatus("published");
+                  handleUpdate();
+                }} 
+                disabled={loading}
+              >
+                {loading ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+            <div className="pt-2 border-t">
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={handleDelete}
+                disabled={loading}
+              >
+                Delete Post
+              </Button>
+            </div>
+          </div>
+
+          {/* Thumbnail Section */}
+          <div className="p-6 border rounded-xl bg-card shadow-sm space-y-4">
+            <h3 className="font-semibold text-lg">Thumbnail</h3>
+            <div
+              className="relative border-2 border-dashed rounded-lg transition-all duration-200 ease-in-out cursor-pointer group border-muted-foreground/20 hover:border-primary/50 hover:bg-muted/50"
+              onClick={() => thumbnailInputRef.current?.click()}
+            >
               <input
                 ref={thumbnailInputRef}
                 type="file"
                 accept="image/*"
-                style={{ display: "none" }}
+                className="hidden"
                 onChange={handleThumbnailFile}
               />
-            </div>
 
-            <Input
-              placeholder="Thumbnail URL (or upload)"
-              value={thumbnail}
-              onChange={(e) => setThumbnail(e.target.value)}
-            />
-            {thumbnail ? (
-              <img
-                src={thumbnail || "/placeholder.svg"}
-                alt="Thumbnail"
-                className="w-full h-40 object-cover rounded-md mt-2 border"
-              />
-            ) : null}
+              <div className="aspect-video w-full flex flex-col items-center justify-center p-4 text-center">
+                {thumbnail ? (
+                  <div className="relative w-full h-full">
+                    <img
+                      src={thumbnail}
+                      alt="Thumbnail preview"
+                      className="w-full h-full object-cover rounded-md shadow-sm"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md">
+                      <p className="text-white font-medium text-sm">Change Image</p>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setThumbnail("");
+                      }}
+                      className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1.5 shadow-md hover:bg-destructive/90 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3 py-6">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto text-primary group-hover:scale-110 transition-transform">
+                      <ImagePlus className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Click or drag image</p>
+                      <p className="text-xs text-muted-foreground">
+                        1200x630 recommended
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* URL Fallback */}
+            {!thumbnail && (
+               <div className="pt-2">
+                 <Label className="text-xs text-muted-foreground mb-1.5 block">
+                   Or paste image URL
+                 </Label>
+                 <div className="flex gap-2">
+                   <Input
+                     placeholder="https://..."
+                     value={thumbnail}
+                     onChange={(e) => setThumbnail(e.target.value)}
+                     className="text-xs h-8"
+                   />
+                 </div>
+               </div>
+            )}
           </div>
 
-          <div>
-            <div className="flex items-center gap-2">
-              <Label>Post Images</Label>
-              <button
-                type="button"
-                onClick={() => postImagesInputRef.current?.click()}
-                title="Upload images"
-                className="ml-2"
-              >
-                <ImagePlus />
-              </button>
-              <input
-                ref={postImagesInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                style={{ display: "none" }}
-                onChange={handleImageUpload}
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-2 mt-2">
-              {images.map((img, idx) => (
-                <div key={idx} className="relative">
-                  <img
-                    src={img || "/placeholder.svg"}
-                    alt={`img-${idx}`}
-                    className="w-28 h-20 object-cover rounded-md border"
-                  />
-                  <button
-                    onClick={() =>
-                      setImages((p) => p.filter((_, i) => i !== idx))
-                    }
-                    className="absolute -top-1 -right-1 bg-white rounded-full px-1 text-sm"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Author + share url */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <Label>Author</Label>
-            <div className="mt-2">
+          {/* Author & Settings */}
+          <div className="p-6 border rounded-xl bg-card shadow-sm space-y-6">
+            <h3 className="font-semibold text-lg">Settings</h3>
+            
+            <div className="space-y-2">
+              <Label>Author</Label>
               <AuthorSelect
                 value={authorSelected ?? undefined}
-                onChange={(u) => {
-                  // u will be UserItem | null | undefined depending on AuthorSelect impl
-                  setAuthorSelected(u ?? null);
-                }}
+                onChange={(u) => setAuthorSelected(u ?? null)}
                 apiUrl={apiUrl}
-                placeholder="Type author name (select or create)"
+                placeholder="Select author..."
                 createAuthorByName={createAuthorByName}
               />
             </div>
-          </div>
 
-          <div>
-            <Label>Share URL</Label>
-            <Input
-              placeholder="share-url"
-              value={shareUrl}
-              onChange={(e) => setShareUrl(e.target.value)}
-            />
-          </div>
-        </div>
+            <div className="space-y-2">
+              <Label>Share URL</Label>
+              <Input
+                placeholder="custom-share-url"
+                value={shareUrl}
+                onChange={(e) => setShareUrl(e.target.value)}
+              />
+            </div>
 
-        {/* Featured + status */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-          <div className="flex items-center gap-3">
-            <Label>Featured</Label>
-            <Switch checked={featured} onCheckedChange={setFeatured} />
-          </div>
-          <div>
-            <Label>Status</Label>
-            <select
-              className="w-full mt-2 p-2 border rounded"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              <option value="published">Published</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Menus */}
-        <div>
-          <Label>Menus & Submenus</Label>
-          <div className="space-y-3 mt-2">
-            {menuPairs.map((pair) => (
-              <div key={pair.id} className="flex gap-3 items-center">
-                <div className="flex-1">
-                  <Select
-                    value={pair.menu}
-                    onValueChange={(val) =>
-                      updateMenuPair(pair.id, { menu: val, submenu: "" })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select menu" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {menus.map((m) => (
-                        <SelectItem key={m._id} value={m.name}>
-                          {m.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex-1">
-                  <Select
-                    value={pair.submenu}
-                    onValueChange={(val) =>
-                      updateMenuPair(pair.id, { submenu: val })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select submenu" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(
-                        menus.find((mm) => mm.name === pair.menu)?.submenus ||
-                        []
-                      ).map((sm: { _id: string; name: string }) => (
-                        <SelectItem key={sm._id} value={sm.name}>
-                          {sm.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => removeMenuPair(pair.id)}
-                  >
-                    Remove
-                  </Button>
-                </div>
-              </div>
-            ))}
-
-            <div>
-              <Button size="sm" onClick={() => addMenuPair()} className="mt-2">
-                Add Menu
-              </Button>
+            <div className="flex items-center justify-between py-2">
+              <Label className="cursor-pointer" htmlFor="featured-switch">Featured Post</Label>
+              <Switch 
+                id="featured-switch"
+                checked={featured} 
+                onCheckedChange={setFeatured} 
+              />
             </div>
           </div>
-        </div>
 
-        {/* Tags */}
-        <div>
-          <Label>Tags</Label>
-          <div className="flex flex-wrap items-center gap-2 border mt-2 rounded-md p-2">
-            {tags.map((tag) => (
-              <Badge
-                key={tag}
-                variant="secondary"
-                className="flex items-center gap-1"
-              >
-                {tag}
-                <button
-                  onClick={() => handleRemoveTag(tag)}
-                  className="text-xs hover:text-red-500 ml-1"
-                >
-                  ✕
-                </button>
-              </Badge>
-            ))}
-            <input
-              className="flex-1 min-w-[100px] outline-none text-sm bg-transparent"
-              placeholder="Add tag and press Enter"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={handleAddTag}
-            />
+          {/* Taxonomy */}
+          <div className="p-6 border rounded-xl bg-card shadow-sm space-y-6">
+            <h3 className="font-semibold text-lg">Taxonomy</h3>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Menus</Label>
+                <Button variant="ghost" size="sm" onClick={() => addMenuPair()} className="h-8 px-2 text-xs">
+                  <Plus className="w-3 h-3 mr-1" /> Add
+                </Button>
+              </div>
+              <div className="space-y-3">
+                {menuPairs.map((pair) => (
+                  <div key={pair.id} className="space-y-2 p-3 bg-muted/30 rounded-lg border">
+                    <div className="flex gap-2">
+                      <Select
+                        value={pair.menu}
+                        onValueChange={(val) => updateMenuPair(pair.id, { menu: val, submenu: "" })}
+                      >
+                        <SelectTrigger className="h-8 text-xs bg-background">
+                          <SelectValue placeholder="Menu" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {menus.map((m) => (
+                            <SelectItem key={m._id} value={m.name}>{m.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+                        onClick={() => removeMenuPair(pair.id)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    
+                    <Select
+                      value={pair.submenu}
+                      onValueChange={(val) => updateMenuPair(pair.id, { submenu: val })}
+                    >
+                      <SelectTrigger className="h-8 text-xs bg-background">
+                        <SelectValue placeholder="Submenu" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(menus.find((mm) => mm.name === pair.menu)?.submenus || []).map((sm: { _id: string; name: string }) => (
+                          <SelectItem key={sm._id} value={sm.name}>{sm.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tags</Label>
+              <div className="flex flex-wrap gap-2 p-2 border rounded-md bg-background min-h-[80px]">
+                {tags.map((tag) => (
+                  <Badge key={tag} variant="secondary" className="h-6 text-xs gap-1 pr-1">
+                    {tag}
+                    <button onClick={() => handleRemoveTag(tag)} className="hover:text-destructive">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </Badge>
+                ))}
+                <input
+                  className="flex-1 min-w-[80px] bg-transparent text-sm outline-none placeholder:text-xs"
+                  placeholder="Add tag..."
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={handleAddTag}
+                />
+              </div>
+            </div>
           </div>
-        </div>
-
-        {/* Content */}
-        <div>
-          <Label>Content</Label>
-          <div className="mt-2 border rounded-md min-h-[200px]">
-            {/* @ts-ignore */}
-            <RichTextEditor content={content} onChange={setContent} />
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex justify-end gap-3 pt-4">
-          <Button variant="outline" onClick={() => router.push("/admin/posts")}>
-            Cancel
-          </Button>
-          <Button onClick={handleUpdate} disabled={loading}>
-            {loading ? "Working…" : "Save Changes"}
-          </Button>
         </div>
       </div>
     </div>

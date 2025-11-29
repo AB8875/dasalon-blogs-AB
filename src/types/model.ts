@@ -1,6 +1,4 @@
-import type { ObjectId } from "mongodb";
-
-export type Id = string | ObjectId;
+export type Id = string;
 
 export interface Post {
   _id?: Id;
